@@ -1,0 +1,21 @@
+{
+  "name": "travel-planner-explorer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "An all-in-one travel planning platform with itinerary creation, maps, lodging, flights, and points of interest",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,html --report-unused-disable-directives --max-warnings 0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "eslint": "^8.55.0",
+    "eslint-plugin-html": "^7.1.0"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  }
+} 

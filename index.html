@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Travel Planner & Explorer - Your all-in-one platform for planning amazing trips">
+    <meta name="keywords" content="travel, planner, explorer, itinerary, flights, hotels, maps">
+    <title>Travel Planner & Explorer</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-compass"></i>
+                <span>TravelExplorer</span>
+            </div>
+            
+            <div class="nav-menu" id="nav-menu">
+                <a href="#home" class="nav-link active" data-page="home">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#explore" class="nav-link" data-page="explore">
+                    <i class="fas fa-search"></i>
+                    <span>Explore</span>
+                </a>
+                <a href="#planner" class="nav-link" data-page="planner">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>My Trips</span>
+                </a>
+                <a href="#map" class="nav-link" data-page="map">
+                    <i class="fas fa-map"></i>
+                    <span>Map</span>
+                </a>
+                <a href="#profile" class="nav-link" data-page="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+            </div>
+            
+            <div class="nav-auth">
+                <button class="btn btn-outline" id="login-btn">Login</button>
+                <button class="btn btn-primary" id="register-btn">Register</button>
+            </div>
+            
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Page -->
+        <section class="page active" id="home-page">
+            <div class="hero">
+                <div class="hero-content">
+                    <h1 class="hero-title">Discover Your Next Adventure</h1>
+                    <p class="hero-subtitle">Plan, explore, and experience the world with our all-in-one travel platform</p>
+                    
+                    <div class="search-container">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Search your dream destination..." id="hero-search">
+                            <button class="search-btn" id="hero-search-btn">
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <img src="/src/assets/hero-travel.jpg" alt="Travel Adventure" loading="lazy">
+                </div>
+            </div>
+            
+            <div class="container">
+                <section class="featured-section">
+                    <h2>Popular Destinations</h2>
+                    <div class="destination-grid" id="popular-destinations">
+                        <!-- Destinations will be loaded dynamically -->
+                    </div>
+                </section>
+                
+                <section class="features-section">
+                    <h2>Why Choose TravelExplorer?</h2>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <i class="fas fa-route"></i>
+                            <h3>Smart Itinerary Builder</h3>
+                            <p>Create detailed day-by-day travel schedules with ease</p>
+                        </div>
+                        <div class="feature-card">
+                            <i class="fas fa-plane"></i>
+                            <h3>Flight Search</h3>
+                            <p>Find and compare flights to get the best deals</p>
+                        </div>
+                        <div class="feature-card">
+                            <i class="fas fa-bed"></i>
+                            <h3>Hotel Finder</h3>
+                            <p>Discover perfect accommodations for your stay</p>
+                        </div>
+                        <div class="feature-card">
+                            <i class="fas fa-map-marked-alt"></i>
+                            <h3>Interactive Maps</h3>
+                            <p>Explore destinations with detailed maps and directions</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <!-- Explore Page -->
+        <section class="page" id="explore-page">
+            <div class="container">
+                <div class="page-header">
+                    <h1>Explore Destinations</h1>
+                    <p>Discover amazing places around the world</p>
+                </div>
+                
+                <div class="explore-controls">
+                    <div class="search-filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Search destinations..." id="explore-search">
+                        </div>
+                        <div class="filter-dropdown">
+                            <select id="category-filter">
+                                <option value="">All Categories</option>
+                                <option value="attractions">Attractions</option>
+                                <option value="museums">Museums</option>
+                                <option value="food">Food & Dining</option>
+                                <option value="nature">Nature</option>
+                                <option value="culture">Culture</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="explore-grid" id="explore-results">
+                    <!-- Results will be loaded dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Trip Planner Page -->
+        <section class="page" id="planner-page">
+            <div class="container">
+                <div class="page-header">
+                    <h1>My Trip Planner</h1>
+                    <button class="btn btn-primary" id="new-trip-btn">
+                        <i class="fas fa-plus"></i>
+                        New Trip
+                    </button>
+                </div>
+                
+                <div class="planner-content">
+                    <div class="trips-sidebar">
+                        <h3>My Trips</h3>
+                        <div class="trips-list" id="trips-list">
+                            <!-- Trips will be loaded dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="itinerary-builder" id="itinerary-builder">
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-plus"></i>
+                            <h3>Start Planning Your Adventure</h3>
+                            <p>Create a new trip or select an existing one to begin planning</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Page -->
+        <section class="page" id="map-page">
+            <div class="container-fluid">
+                <div class="map-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search locations..." id="map-search">
+                    </div>
+                    <div class="map-filters">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="attractions">Attractions</button>
+                        <button class="filter-btn" data-filter="hotels">Hotels</button>
+                        <button class="filter-btn" data-filter="restaurants">Restaurants</button>
+                    </div>
+                </div>
+                <div class="map-container">
+                    <div id="map"></div>
+                    <div class="map-sidebar" id="map-sidebar">
+                        <div class="sidebar-content">
+                            <h3>Location Details</h3>
+                            <p>Click on a marker to see details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile Page -->
+        <section class="page" id="profile-page">
+            <div class="container">
+                <div class="page-header">
+                    <h1>My Profile</h1>
+                </div>
+                
+                <div class="profile-content">
+                    <div class="profile-card">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="profile-name">Guest User</h2>
+                            <p id="profile-email">Please login to access your profile</p>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-sections">
+                        <div class="section">
+                            <h3>Saved Trips</h3>
+                            <div class="saved-trips" id="saved-trips">
+                                <!-- Saved trips will be loaded dynamically -->
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <h3>Favorites</h3>
+                            <div class="favorites-list" id="favorites-list">
+                                <!-- Favorites will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Login</h2>
+                <button class="modal-close" id="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="tab-btn active" data-tab="login">Login</button>
+                    <button class="tab-btn" data-tab="register">Register</button>
+                </div>
+                
+                <form class="auth-form" id="auth-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group" id="confirm-password-group" style="display: none;">
+                        <label for="confirm-password">Confirm Password</label>
+                        <input type="password" id="confirm-password" name="confirm-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <span id="auth-btn-text">Login</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html> 
