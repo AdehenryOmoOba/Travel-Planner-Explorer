@@ -14,15 +14,15 @@ export class LocationService {
         this.apis = {
             places: {
                 baseUrl: 'https://maps.googleapis.com/maps/api/place',
-                apiKey: process.env.GOOGLE_PLACES_API_KEY || 'demo-key'
+                apiKey: 'demo-key' // process.env.GOOGLE_PLACES_API_KEY fallback
             },
             foursquare: {
                 baseUrl: 'https://api.foursquare.com/v3/places',
-                apiKey: process.env.FOURSQUARE_API_KEY || 'demo-key'
+                apiKey: 'demo-key' // process.env.FOURSQUARE_API_KEY fallback
             },
             openweather: {
                 baseUrl: 'https://api.openweathermap.org/data/2.5',
-                apiKey: process.env.OPENWEATHER_API_KEY || 'demo-key'
+                apiKey: 'demo-key' // process.env.OPENWEATHER_API_KEY fallback
             }
         };
         

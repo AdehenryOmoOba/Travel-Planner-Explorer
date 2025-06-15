@@ -13,12 +13,12 @@ export class HotelService {
         // API configurations
         this.apis = {
             amadeus: {
-                baseUrl: 'https://test.api.amadeus.com',
-                apiKey: process.env.AMADEUS_API_KEY || 'demo-key'
+                baseUrl: 'https://api.amadeus.com/v1',
+                apiKey: 'demo-key' // process.env.AMADEUS_API_KEY fallback
             },
             booking: {
-                baseUrl: 'https://distribution-xml.booking.com',
-                apiKey: process.env.BOOKING_API_KEY || 'demo-key'
+                baseUrl: 'https://distribution-xml.booking.com/json',
+                apiKey: 'demo-key' // process.env.BOOKING_API_KEY fallback
             }
         };
         

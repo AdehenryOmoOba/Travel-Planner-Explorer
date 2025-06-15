@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Planner Test</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Travel Planner Test</h1>
+        <section class="featured-section">
+            <h2>Popular Destinations</h2>
+            <div class="destination-grid" id="popular-destinations">
+                <!-- Destinations will be loaded here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Simple test to load destinations
+        document.addEventListener('DOMContentLoaded', () => {
+            const destinations = [
+                {
+                    id: 'paris',
+                    name: 'Paris, France',
+                    description: 'The City of Light with iconic landmarks and rich culture',
+                    image: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.8,
+                    bestTimeToVisit: 'Apr-Oct'
+                },
+                {
+                    id: 'tokyo',
+                    name: 'Tokyo, Japan',
+                    description: 'Modern metropolis blending tradition with cutting-edge technology',
+                    image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.7,
+                    bestTimeToVisit: 'Mar-May, Sep-Nov'
+                },
+                {
+                    id: 'newyork',
+                    name: 'New York City, USA',
+                    description: 'The Big Apple - bustling city that never sleeps',
+                    image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.6,
+                    bestTimeToVisit: 'Apr-Jun, Sep-Nov'
+                },
+                {
+                    id: 'london',
+                    name: 'London, England',
+                    description: 'Historic capital with royal palaces and modern attractions',
+                    image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.5,
+                    bestTimeToVisit: 'May-Sep'
+                }
+            ];
+
+            const container = document.getElementById('popular-destinations');
+            container.innerHTML = destinations.map(destination => `
+                <div class="destination-card" data-destination="${destination.id}">
+                    <img src="${destination.image}" alt="${destination.name}" loading="lazy" 
+                         onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                    <div class="destination-card-content">
+                        <h3>${destination.name}</h3>
+                        <p>${destination.description}</p>
+                        <div class="destination-meta">
+                            <span class="rating">★ ${destination.rating}</span>
+                            <span class="best-time">${destination.bestTimeToVisit}</span>
+                        </div>
+                        <button class="btn btn-outline" onclick="alert('Exploring ${destination.name}')">
+                            Explore
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        });
+    </script>
+</body>
+</html> 

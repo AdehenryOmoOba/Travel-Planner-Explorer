@@ -114,7 +114,7 @@ class TravelPlannerApp {
                 logger: this.logger
             };
             
-            // Setup global methods after TravelApp is available
+            // Setup global methods immediately after TravelApp is available
             this.setupGlobalMethods();
             
             this.logger.info('API services initialized successfully');
@@ -650,7 +650,7 @@ class TravelPlannerApp {
 
         container.innerHTML = destinations.map(destination => `
             <div class="destination-card" data-destination="${destination.id}">
-                <img src="${destination.image}" alt="${destination.name}" loading="lazy">
+                <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
                 <div class="destination-card-content">
                     <h3>${destination.name}</h3>
                     <p>${destination.description}</p>
@@ -658,12 +658,20 @@ class TravelPlannerApp {
                         <span class="rating">★ ${destination.rating}</span>
                         <span class="best-time">${destination.bestTimeToVisit}</span>
                     </div>
-                    <button class="btn btn-outline" onclick="TravelApp.exploreDestination('${destination.id}')">
+                    <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
                         Explore
                     </button>
                 </div>
             </div>
         `).join('');
+
+        // Add event listeners for explore buttons
+        container.querySelectorAll('.explore-destination-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const destinationId = e.target.dataset.destinationId;
+                this.exploreDestination(destinationId);
+            });
+        });
     }
 
     /**

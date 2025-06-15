@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Planner Debug</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Travel Planner Debug</h1>
+        <div id="debug-output"></div>
+        
+        <section class="featured-section">
+            <h2>Popular Destinations</h2>
+            <div class="destination-grid" id="popular-destinations">
+                <!-- Destinations will be loaded here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loading-spinner">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script type="module">
+        const debugOutput = document.getElementById('debug-output');
+        
+        function log(message) {
+            console.log(message);
+            debugOutput.innerHTML += `<p>${message}</p>`;
+        }
+        
+        log('Starting debug...');
+        
+        try {
+            log('Importing Logger...');
+            const { Logger } = await import('./src/utils/Logger.js');
+            log('Logger imported successfully');
+            
+            log('Importing UIManager...');
+            const { UIManager } = await import('./src/modules/UIManager.js');
+            log('UIManager imported successfully');
+            
+            log('Testing UIManager static methods...');
+            UIManager.showLoading();
+            setTimeout(() => {
+                UIManager.hideLoading();
+                UIManager.showToast('Test toast message', 'success');
+            }, 1000);
+            
+            log('Importing LocationService...');
+            const { LocationService } = await import('./src/services/LocationService.js');
+            log('LocationService imported successfully');
+            
+            log('Creating LocationService instance...');
+            const locationService = new LocationService();
+            log('LocationService instance created');
+            
+            log('Testing location search...');
+            const destinations = await locationService.searchLocations({
+                query: 'popular destinations',
+                type: 'city'
+            });
+            log(`Found ${destinations.length} destinations`);
+            
+            // Render destinations
+            const container = document.getElementById('popular-destinations');
+            container.innerHTML = destinations.map(destination => `
+                <div class="destination-card" data-destination="${destination.id}">
+                    <img src="${destination.image}" alt="${destination.name}" loading="lazy" 
+                         onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                    <div class="destination-card-content">
+                        <h3>${destination.name}</h3>
+                        <p>${destination.description}</p>
+                        <div class="destination-meta">
+                            <span class="rating">★ ${destination.rating}</span>
+                            <span class="best-time">${destination.bestTimeToVisit}</span>
+                        </div>
+                        <button class="btn btn-outline" onclick="alert('Exploring ${destination.name}')">
+                            Explore
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            log('Destinations rendered successfully');
+            
+        } catch (error) {
+            log(`Error: ${error.message}`);
+            console.error('Debug error:', error);
+        }
+    </script>
+</body>
+</html> 
