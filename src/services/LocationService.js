@@ -274,6 +274,157 @@ export class LocationService {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 800));
 
+        // If searching for popular destinations, return curated list
+        if (searchParams.query && searchParams.query.toLowerCase().includes('popular')) {
+            return [
+                {
+                    id: 'paris-france',
+                    name: 'Paris, France',
+                    type: 'city',
+                    country: 'France',
+                    region: 'Europe',
+                    coordinates: {
+                        lat: 48.8566,
+                        lng: 2.3522
+                    },
+                    description: 'The City of Light with iconic landmarks and rich culture',
+                    image: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.8,
+                    reviewCount: 15420,
+                    highlights: ['Eiffel Tower', 'Louvre Museum', 'Notre-Dame', 'Champs-Élysées'],
+                    bestTimeToVisit: 'Apr-Oct',
+                    averageStay: '4-6 days'
+                },
+                {
+                    id: 'tokyo-japan',
+                    name: 'Tokyo, Japan',
+                    type: 'city',
+                    country: 'Japan',
+                    region: 'Asia',
+                    coordinates: {
+                        lat: 35.6762,
+                        lng: 139.6503
+                    },
+                    description: 'Modern metropolis blending tradition with cutting-edge technology',
+                    image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.7,
+                    reviewCount: 12890,
+                    highlights: ['Shibuya Crossing', 'Tokyo Tower', 'Senso-ji Temple', 'Harajuku'],
+                    bestTimeToVisit: 'Mar-May, Sep-Nov',
+                    averageStay: '5-7 days'
+                },
+                {
+                    id: 'newyork-usa',
+                    name: 'New York City, USA',
+                    type: 'city',
+                    country: 'United States',
+                    region: 'North America',
+                    coordinates: {
+                        lat: 40.7128,
+                        lng: -74.0060
+                    },
+                    description: 'The Big Apple - bustling city that never sleeps',
+                    image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.6,
+                    reviewCount: 18750,
+                    highlights: ['Times Square', 'Central Park', 'Statue of Liberty', 'Broadway'],
+                    bestTimeToVisit: 'Apr-Jun, Sep-Nov',
+                    averageStay: '4-6 days'
+                },
+                {
+                    id: 'london-uk',
+                    name: 'London, England',
+                    type: 'city',
+                    country: 'United Kingdom',
+                    region: 'Europe',
+                    coordinates: {
+                        lat: 51.5074,
+                        lng: -0.1278
+                    },
+                    description: 'Historic capital with royal palaces and modern attractions',
+                    image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.5,
+                    reviewCount: 14320,
+                    highlights: ['Big Ben', 'Tower Bridge', 'British Museum', 'Buckingham Palace'],
+                    bestTimeToVisit: 'May-Sep',
+                    averageStay: '3-5 days'
+                },
+                {
+                    id: 'rome-italy',
+                    name: 'Rome, Italy',
+                    type: 'city',
+                    country: 'Italy',
+                    region: 'Europe',
+                    coordinates: {
+                        lat: 41.9028,
+                        lng: 12.4964
+                    },
+                    description: 'Eternal City with ancient history and incredible architecture',
+                    image: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.7,
+                    reviewCount: 11680,
+                    highlights: ['Colosseum', 'Vatican City', 'Trevi Fountain', 'Roman Forum'],
+                    bestTimeToVisit: 'Apr-Jun, Sep-Oct',
+                    averageStay: '3-4 days'
+                },
+                {
+                    id: 'barcelona-spain',
+                    name: 'Barcelona, Spain',
+                    type: 'city',
+                    country: 'Spain',
+                    region: 'Europe',
+                    coordinates: {
+                        lat: 41.3851,
+                        lng: 2.1734
+                    },
+                    description: 'Vibrant Mediterranean city with stunning architecture and beaches',
+                    image: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.6,
+                    reviewCount: 9870,
+                    highlights: ['Sagrada Familia', 'Park Güell', 'Las Ramblas', 'Gothic Quarter'],
+                    bestTimeToVisit: 'May-Jun, Sep-Oct',
+                    averageStay: '3-4 days'
+                },
+                {
+                    id: 'dubai-uae',
+                    name: 'Dubai, UAE',
+                    type: 'city',
+                    country: 'United Arab Emirates',
+                    region: 'Middle East',
+                    coordinates: {
+                        lat: 25.2048,
+                        lng: 55.2708
+                    },
+                    description: 'Futuristic city with luxury shopping and modern architecture',
+                    image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.4,
+                    reviewCount: 8950,
+                    highlights: ['Burj Khalifa', 'Dubai Mall', 'Palm Jumeirah', 'Desert Safari'],
+                    bestTimeToVisit: 'Nov-Mar',
+                    averageStay: '3-5 days'
+                },
+                {
+                    id: 'sydney-australia',
+                    name: 'Sydney, Australia',
+                    type: 'city',
+                    country: 'Australia',
+                    region: 'Oceania',
+                    coordinates: {
+                        lat: -33.8688,
+                        lng: 151.2093
+                    },
+                    description: 'Harbor city with iconic landmarks and beautiful beaches',
+                    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                    rating: 4.5,
+                    reviewCount: 7650,
+                    highlights: ['Sydney Opera House', 'Harbour Bridge', 'Bondi Beach', 'The Rocks'],
+                    bestTimeToVisit: 'Sep-Nov, Mar-May',
+                    averageStay: '4-6 days'
+                }
+            ];
+        }
+
+        // For other searches, return dynamic results
         const locations = [
             {
                 id: `LOC${Date.now()}_1`,
@@ -286,7 +437,7 @@ export class LocationService {
                     lng: -74.0060 + (Math.random() - 0.5) * 0.1
                 },
                 description: `Explore the vibrant heart of ${searchParams.query} with its rich culture and attractions.`,
-                image: `https://images.unsplash.com/800x600/?${searchParams.query.toLowerCase()}&city`,
+                image: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: Math.round((4 + Math.random()) * 10) / 10,
                 reviewCount: Math.floor(Math.random() * 5000) + 500,
                 highlights: ['Historic Architecture', 'Cultural Sites', 'Local Cuisine', 'Shopping'],
@@ -304,11 +455,29 @@ export class LocationService {
                     lng: -74.0060 + (Math.random() - 0.5) * 0.05
                 },
                 description: `Step back in time in the historic district of ${searchParams.query}.`,
-                image: `https://images.unsplash.com/800x600/?${searchParams.query.toLowerCase()}&historic`,
+                image: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: Math.round((4.2 + Math.random() * 0.8) * 10) / 10,
                 reviewCount: Math.floor(Math.random() * 2000) + 200,
                 highlights: ['Museums', 'Historic Buildings', 'Walking Tours', 'Art Galleries'],
                 bestTimeToVisit: 'Year-round',
+                averageStay: '1-2 days'
+            },
+            {
+                id: `LOC${Date.now()}_3`,
+                name: `${searchParams.query} Waterfront`,
+                type: 'area',
+                country: 'United States',
+                region: 'North America',
+                coordinates: {
+                    lat: 40.7128 + (Math.random() - 0.5) * 0.08,
+                    lng: -74.0060 + (Math.random() - 0.5) * 0.08
+                },
+                description: `Beautiful waterfront area of ${searchParams.query} with scenic views.`,
+                image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=entropy&auto=format',
+                rating: Math.round((4.1 + Math.random() * 0.7) * 10) / 10,
+                reviewCount: Math.floor(Math.random() * 1500) + 300,
+                highlights: ['Scenic Views', 'Restaurants', 'Walking Paths', 'Boat Tours'],
+                bestTimeToVisit: 'May - September',
                 averageStay: '1-2 days'
             }
         ];

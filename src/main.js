@@ -408,7 +408,15 @@ class TravelPlannerApp {
      */
     displaySearchResults(results, type) {
         const container = document.getElementById('search-results');
+        const exploreContainer = document.getElementById('explore-results');
+        
         if (!container) return;
+        
+        // Show search results container and hide explore results
+        container.style.display = 'block';
+        if (exploreContainer) {
+            exploreContainer.style.display = 'none';
+        }
         
         container.innerHTML = `
             <div class="search-results-header">

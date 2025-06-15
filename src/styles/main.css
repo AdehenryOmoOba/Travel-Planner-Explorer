@@ -530,6 +530,306 @@ p {
     gap: var(--spacing-lg);
 }
 
+/* ===== SEARCH RESULTS ===== */
+.search-results {
+    margin-top: var(--spacing-xl);
+}
+
+.search-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.search-results-header h3 {
+    color: var(--primary-color);
+    margin: 0;
+}
+
+.search-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.search-results .destination-card,
+.search-results .location-card,
+.search-results .flight-card,
+.search-results .hotel-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+    transition: all var(--transition-medium);
+    cursor: pointer;
+}
+
+.search-results .destination-card:hover,
+.search-results .location-card:hover,
+.search-results .flight-card:hover,
+.search-results .hotel-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-heavy);
+}
+
+/* Flight Card Styles */
+.flight-card {
+    padding: var(--spacing-md);
+}
+
+.flight-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.flight-header .airline {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.flight-header .flight-number {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.flight-route {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: var(--spacing-md) 0;
+}
+
+.flight-route .departure,
+.flight-route .arrival {
+    text-align: center;
+    flex: 1;
+}
+
+.flight-route .time {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.flight-route .airport {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: var(--spacing-xs);
+}
+
+.flight-duration {
+    text-align: center;
+    flex: 1;
+    padding: 0 var(--spacing-md);
+}
+
+.flight-duration .duration {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    margin-bottom: var(--spacing-xs);
+}
+
+.flight-duration .stops,
+.flight-duration .direct {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-cream);
+    color: var(--primary-color);
+}
+
+.flight-duration .direct {
+    background: var(--accent-teal);
+    color: var(--white);
+}
+
+.flight-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.flight-footer .price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+/* Hotel Card Styles */
+.hotel-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.hotel-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.hotel-content {
+    padding: var(--spacing-md);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.hotel-header {
+    margin-bottom: var(--spacing-sm);
+}
+
+.hotel-header h4 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--primary-color);
+}
+
+.hotel-rating {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.hotel-rating .stars {
+    color: var(--secondary-color);
+}
+
+.hotel-rating .rating {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.hotel-rating .reviews {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.hotel-location {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-bottom: var(--spacing-sm);
+}
+
+.hotel-amenities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.hotel-amenities .amenity {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    background: var(--accent-cream);
+    color: var(--primary-color);
+    border-radius: var(--radius-sm);
+}
+
+.hotel-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.hotel-footer .price {
+    text-align: right;
+}
+
+.hotel-footer .price .amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.hotel-footer .price .period {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+/* Location Card Styles */
+.location-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.location-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.location-content {
+    padding: var(--spacing-md);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.location-content h4 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--primary-color);
+}
+
+.location-type {
+    font-size: 0.9rem;
+    color: var(--accent-teal);
+    font-weight: 500;
+    margin-bottom: var(--spacing-xs);
+}
+
+.location-description {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    margin-bottom: var(--spacing-sm);
+    flex: 1;
+}
+
+.location-highlights {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.location-highlights .highlight {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    background: var(--accent-cream);
+    color: var(--primary-color);
+    border-radius: var(--radius-sm);
+}
+
+.location-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.location-footer .rating {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--secondary-color);
+}
+
 /* ===== TRIP PLANNER ===== */
 .planner-content {
     display: grid;
