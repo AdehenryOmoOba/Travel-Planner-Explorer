@@ -16,6 +16,8 @@
     "eslint-plugin-html": "^7.1.0"
   },
   "dependencies": {
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1"
   }
 } 

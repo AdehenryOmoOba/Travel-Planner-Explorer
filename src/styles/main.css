@@ -243,6 +243,40 @@ p {
     gap: var(--spacing-sm);
 }
 
+.notification-icon {
+    position: relative;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: var(--text-dark);
+    transition: all var(--transition-fast);
+}
+
+.notification-icon:hover {
+    color: var(--primary-color);
+}
+
+.notification-icon i {
+    font-size: 1.2rem;
+}
+
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--secondary-color);
+    color: var(--white);
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(50%, -50%);
+    padding: 0 4px;
+}
+
 .hamburger {
     display: none;
     flex-direction: column;
@@ -1027,14 +1061,46 @@ p {
 .modal-close {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     color: var(--text-light);
-    transition: color var(--transition-fast);
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.modal-close::before,
+.modal-close::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 2px;
+    background-color: currentColor;
+    border-radius: 2px;
+    transition: all var(--transition-fast);
+}
+
+.modal-close::before {
+    transform: rotate(45deg);
+}
+
+.modal-close::after {
+    transform: rotate(-45deg);
 }
 
 .modal-close:hover {
+    background-color: var(--light-gray);
     color: var(--text-dark);
+    transform: rotate(90deg);
+}
+
+.modal-close:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26, 60, 64, 0.1);
 }
 
 .modal-body {
@@ -1146,6 +1212,59 @@ p {
     border-left: 4px solid var(--primary-color);
     animation: slideInRight 0.3s ease;
     max-width: 300px;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.toast-content {
+    flex: 1;
+    padding-right: var(--spacing-md);
+}
+
+.toast-close {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: all var(--transition-fast);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.toast-close::before,
+.toast-close::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background-color: currentColor;
+    border-radius: 2px;
+    transition: all var(--transition-fast);
+}
+
+.toast-close::before {
+    transform: rotate(45deg);
+}
+
+.toast-close::after {
+    transform: rotate(-45deg);
+}
+
+.toast-close:hover {
+    background-color: var(--light-gray);
+    color: var(--text-dark);
+    transform: rotate(90deg);
+}
+
+.toast-close:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26, 60, 64, 0.1);
 }
 
 .toast.success {

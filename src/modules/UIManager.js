@@ -66,12 +66,18 @@ export class UIManager {
                 <i class="fas fa-${UIManager.getToastIcon(type)}"></i>
                 <span>${message}</span>
             </div>
-            <button class="toast-close" onclick="this.parentElement.remove()">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="toast-close" aria-label="Close notification"></button>
         `;
 
         container.appendChild(toast);
+
+        // Add click handler for close button
+        const closeBtn = toast.querySelector('.toast-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                toast.remove();
+            });
+        }
 
         // Auto remove after duration
         setTimeout(() => {
@@ -79,11 +85,6 @@ export class UIManager {
                 toast.remove();
             }
         }, duration);
-
-        // Add click to dismiss
-        toast.addEventListener('click', () => {
-            toast.remove();
-        });
     }
 
     /**

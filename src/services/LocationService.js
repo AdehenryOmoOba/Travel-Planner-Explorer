@@ -1,4 +1,6 @@
 import { Logger } from '../utils/Logger.js';
+import axios from 'axios';
+import { API_CONFIG } from '../config/api.config.js';
 
 /**
  * LocationService - Handles location search, points of interest, and geographic data
@@ -30,87 +32,220 @@ export class LocationService {
     }
 
     /**
-     * Search for locations and destinations
-     * @param {Object} searchParams - Location search parameters
-     * @param {string} searchParams.query - Search query (city, landmark, etc.)
-     * @param {Object} searchParams.coordinates - Optional coordinates for nearby search
-     * @param {string} searchParams.type - Location type filter
-     * @returns {Promise<Array>} Array of location results
+     * Search for locations and points of interest
+     * @param {Object} params - Search parameters
+     * @returns {Promise<Array>} Array of locations
      */
-    async searchLocations(searchParams) {
+    async searchLocations(params) {
         try {
-            this.logger.info('Searching locations', { searchParams });
-            
-            // Check cache first
-            const cacheKey = this.generateCacheKey('location', searchParams);
+            const cacheKey = this.generateCacheKey('locations', params);
             const cachedResult = this.getFromCache(cacheKey);
             if (cachedResult) {
-                this.logger.info('Returning cached location results');
                 return cachedResult;
             }
 
-            // Validate search parameters
-            this.validateLocationSearchParams(searchParams);
+            const { apiKey } = API_CONFIG.foursquare;
+            
+            if (!apiKey) {
+                throw new Error('Foursquare API key is not configured');
+            }
 
-            // For demo purposes, return mock data
-            const mockLocations = await this.getMockLocationData(searchParams);
-            
-            // Cache the results
-            this.setCache(cacheKey, mockLocations);
-            
-            this.logger.info('Location search completed', { 
-                resultCount: mockLocations.length,
-                query: searchParams.query
+            const options = {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': apiKey
+                }
+            };
+
+            // If searching for popular destinations, use a curated list of major cities
+            if (params.query === 'popular destinations') {
+                const popularCities = [
+                    'New York',
+                    'London',
+                    'Paris',
+                    'Tokyo',
+                    'Rome',
+                    'Sydney',
+                    'Dubai',
+                    'Bangkok'
+                ];
+
+                const searchPromises = popularCities.map(city => 
+                    this.searchCity(city, options)
+                );
+
+                const results = await Promise.all(searchPromises);
+                const destinations = results.flat().map(place => this.formatPlaceData(place));
+                
+                this.setCache(cacheKey, destinations, this.cacheTimeout);
+                return destinations;
+            }
+
+            // Regular search
+            const searchParams = new URLSearchParams({
+                query: params.query || '',
+                near: params.near || 'New York',
+                categories: '16000',
+                sort: 'RATING',
+                limit: 50,
+                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
             });
+
+            const response = await fetch(
+                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                options
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                this.logger.error('Foursquare API error', { 
+                    status: response.status, 
+                    statusText: response.statusText,
+                    error: errorText
+                });
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            const data = await response.json();
+            const places = data.results.map(place => this.formatPlaceData(place));
             
-            return mockLocations;
+            this.setCache(cacheKey, places, this.cacheTimeout);
+            return places;
             
         } catch (error) {
-            this.logger.error('Location search failed', { error: error.message, searchParams });
+            this.logger.error('Location search failed', { error: error.message, params });
             throw new Error(`Location search failed: ${error.message}`);
         }
     }
 
     /**
+     * Search for a specific city
+     * @private
+     */
+    async searchCity(city, options) {
+        const searchParams = new URLSearchParams({
+            query: city,
+            categories: '16000',
+            sort: 'RATING',
+            limit: 1,
+            fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+        });
+
+        const response = await fetch(
+            `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+            options
+        );
+
+        if (!response.ok) {
+            this.logger.warn(`Failed to search for city: ${city}`);
+            return [];
+        }
+
+        const data = await response.json();
+        return data.results;
+    }
+
+    /**
      * Get points of interest near a location
-     * @param {Object} params - POI search parameters
-     * @param {number} params.lat - Latitude
-     * @param {number} params.lng - Longitude
-     * @param {number} params.radius - Search radius in meters
-     * @param {string} params.category - POI category filter
+     * @param {Object} params - Search parameters
      * @returns {Promise<Array>} Array of points of interest
      */
     async getPointsOfInterest(params) {
         try {
-            this.logger.info('Fetching points of interest', { params });
-            
-            // Check cache first
             const cacheKey = this.generateCacheKey('poi', params);
             const cachedResult = this.getFromCache(cacheKey);
             if (cachedResult) {
-                this.logger.info('Returning cached POI results');
                 return cachedResult;
             }
 
-            // Validate parameters
-            this.validatePOIParams(params);
+            const { apiKey } = API_CONFIG.foursquare;
+            
+            const options = {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': apiKey
+                }
+            };
 
-            // For demo purposes, return mock data
-            const mockPOIs = await this.getMockPOIData(params);
-            
-            // Cache the results
-            this.setCache(cacheKey, mockPOIs);
-            
-            this.logger.info('POI search completed', { 
-                resultCount: mockPOIs.length,
-                category: params.category
+            // Build search URL with parameters
+            const searchParams = new URLSearchParams({
+                near: params.near || '',
+                categories: params.categories || '16000', // Default to Landmarks and Outdoors
+                sort: 'RATING',
+                limit: 50,
+                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
             });
+
+            const response = await fetch(
+                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                options
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                this.logger.error('Foursquare API error', { 
+                    status: response.status, 
+                    statusText: response.statusText,
+                    error: errorText
+                });
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            const data = await response.json();
+            const pois = data.results.map(place => this.formatPlaceData(place));
             
-            return mockPOIs;
+            this.setCache(cacheKey, pois, this.cacheTimeout);
+            return pois;
             
         } catch (error) {
             this.logger.error('POI search failed', { error: error.message, params });
             throw new Error(`POI search failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get detailed information about a place
+     * @param {string} placeId - Foursquare place ID
+     * @returns {Promise<Object>} Place details
+     */
+    async getPlaceDetails(placeId) {
+        try {
+            const cacheKey = this.generateCacheKey('place_details', placeId);
+            const cachedResult = this.getFromCache(cacheKey);
+            if (cachedResult) {
+                return cachedResult;
+            }
+
+            const { apiKey } = API_CONFIG.foursquare;
+            
+            const options = {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': apiKey
+                }
+            };
+
+            const response = await fetch(
+                `https://api.foursquare.com/v3/places/${placeId}`,
+                options
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const details = this.formatPlaceData(data);
+            
+            this.setCache(cacheKey, details, this.cacheTimeout);
+            return details;
+            
+        } catch (error) {
+            this.logger.error('Place details fetch failed', { error: error.message, placeId });
+            throw new Error(`Place details fetch failed: ${error.message}`);
         }
     }
 
@@ -126,22 +261,67 @@ export class LocationService {
         try {
             this.logger.info('Fetching weather info', { params });
             
-            // Check cache first
             const cacheKey = this.generateCacheKey('weather', params);
             const cachedResult = this.getFromCache(cacheKey);
             if (cachedResult) {
-                this.logger.info('Returning cached weather results');
                 return cachedResult;
             }
 
-            // For demo purposes, return mock data
-            const mockWeather = await this.getMockWeatherData(params);
+            const { baseUrl, apiKey, endpoints } = API_CONFIG.weather;
             
-            // Cache the results (shorter cache for weather)
-            this.setCache(cacheKey, mockWeather, 30 * 60 * 1000); // 30 minutes
-            
-            this.logger.info('Weather info retrieved');
-            return mockWeather;
+            // Get current weather
+            const currentWeatherResponse = await axios.get(`${baseUrl}${endpoints.current}`, {
+                params: {
+                    lat: params.lat,
+                    lon: params.lng,
+                    appid: apiKey,
+                    units: 'metric'
+                }
+            });
+
+            const weatherData = {
+                current: {
+                    temperature: Math.round(currentWeatherResponse.data.main.temp),
+                    condition: currentWeatherResponse.data.weather[0].main,
+                    humidity: currentWeatherResponse.data.main.humidity,
+                    windSpeed: Math.round(currentWeatherResponse.data.wind.speed * 3.6), // Convert m/s to km/h
+                    visibility: currentWeatherResponse.data.visibility / 1000, // Convert m to km
+                    icon: `https://openweathermap.org/img/w/${currentWeatherResponse.data.weather[0].icon}.png`
+                },
+                location: {
+                    coordinates: { lat: params.lat, lng: params.lng },
+                    timezone: currentWeatherResponse.data.timezone,
+                    sunrise: new Date(currentWeatherResponse.data.sys.sunrise * 1000).toLocaleTimeString(),
+                    sunset: new Date(currentWeatherResponse.data.sys.sunset * 1000).toLocaleTimeString()
+                }
+            };
+
+            // Get forecast if requested
+            if (params.forecast) {
+                const forecastResponse = await axios.get(`${baseUrl}${endpoints.forecast}`, {
+                    params: {
+                        lat: params.lat,
+                        lon: params.lng,
+                        appid: apiKey,
+                        units: 'metric'
+                    }
+                });
+
+                weatherData.forecast = forecastResponse.data.list
+                    .filter(item => item.dt_txt.includes('12:00:00')) // Get one forecast per day
+                    .slice(0, 5)
+                    .map(item => ({
+                        date: item.dt_txt.split(' ')[0],
+                        high: Math.round(item.main.temp_max),
+                        low: Math.round(item.main.temp_min),
+                        condition: item.weather[0].main,
+                        precipitation: Math.round(item.pop * 100), // Convert probability to percentage
+                        icon: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`
+                    }));
+            }
+
+            this.setCache(cacheKey, weatherData, 30 * 60 * 1000); // Cache for 30 minutes
+            return weatherData;
             
         } catch (error) {
             this.logger.error('Weather fetch failed', { error: error.message, params });
@@ -237,8 +417,7 @@ export class LocationService {
      * @private
      */
     generateCacheKey(type, params) {
-        const key = `${type}_${JSON.stringify(params)}`;
-        return key.replace(/[^a-zA-Z0-9_]/g, '_');
+        return `${type}-${JSON.stringify(params)}`;
     }
 
     /**
@@ -258,7 +437,7 @@ export class LocationService {
      * Set data in cache with custom timeout
      * @private
      */
-    setCache(key, data, timeout = this.cacheTimeout) {
+    setCache(key, data, timeout) {
         this.cache.set(key, {
             data,
             timestamp: Date.now(),
@@ -715,5 +894,106 @@ export class LocationService {
     clearCache() {
         this.cache.clear();
         this.logger.info('Location service cache cleared');
+    }
+
+    formatPlaceData(place) {
+        if (!place) return null;
+
+        // Get the first photo if available
+        const photo = place.photos?.[0];
+        const imageUrl = photo ? `${photo.prefix}original${photo.suffix}` : '';
+
+        // Get the main category
+        const mainCategory = place.categories?.[0];
+        const categoryName = mainCategory?.name || 'Place';
+
+        // Format the description
+        const description = place.description || 
+            `Explore ${place.name}, a ${categoryName.toLowerCase()} in ${place.location?.locality || place.location?.country || 'this location'}.`;
+
+        // Calculate rating
+        const rating = place.rating || (place.stats?.total_ratings ? 
+            Math.min(5, Math.max(1, (place.stats.total_ratings / 100) + 3)) : 4.0);
+
+        return {
+            id: place.fsq_id,
+            name: place.name,
+            type: categoryName,
+            description: description,
+            coordinates: {
+                lat: place.geocodes?.main?.latitude,
+                lng: place.geocodes?.main?.longitude
+            },
+            image: imageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop',
+            rating: rating,
+            reviewCount: place.stats?.total_ratings || 0,
+            highlights: place.categories?.map(cat => cat.name) || [],
+            address: place.location?.formatted_address,
+            phone: place.tel,
+            website: place.website,
+            hours: place.hours?.display,
+            price: place.price,
+            bestTimeToVisit: this.getBestTimeToVisit(place.location?.country),
+            stats: {
+                totalRatings: place.stats?.total_ratings,
+                totalTips: place.stats?.total_tips,
+                totalPhotos: place.stats?.total_photos
+            }
+        };
+    }
+
+    getBestTimeToVisit(country) {
+        // Simple mapping of countries to best visiting times
+        const bestTimes = {
+            'United States': 'Apr-Jun, Sep-Nov',
+            'United Kingdom': 'May-Sep',
+            'France': 'Apr-Oct',
+            'Japan': 'Mar-May, Sep-Nov',
+            'Italy': 'Apr-Jun, Sep-Oct',
+            'Australia': 'Sep-Nov, Mar-May',
+            'United Arab Emirates': 'Nov-Mar',
+            'Thailand': 'Nov-Feb'
+        };
+
+        return bestTimes[country] || 'Year-round';
+    }
+
+    /**
+     * Get country information
+     * @param {string} countryName - Name of the country
+     * @returns {Promise<Object>} Country information
+     */
+    async getCountryInfo(countryName) {
+        try {
+            const cacheKey = this.generateCacheKey('country', countryName);
+            const cachedResult = this.getFromCache(cacheKey);
+            if (cachedResult) {
+                return cachedResult;
+            }
+
+            const { baseUrl, endpoints } = API_CONFIG.countries;
+            const response = await axios.get(`${baseUrl}${endpoints.name}/${countryName}`);
+            
+            const countryData = response.data[0];
+            const formattedData = {
+                name: countryData.name.common,
+                capital: countryData.capital?.[0],
+                population: countryData.population,
+                region: countryData.region,
+                subregion: countryData.subregion,
+                languages: Object.values(countryData.languages || {}),
+                currencies: Object.values(countryData.currencies || {}).map(curr => curr.name),
+                flag: countryData.flags.png,
+                timezones: countryData.timezones,
+                coordinates: countryData.latlng
+            };
+
+            this.setCache(cacheKey, formattedData, this.cacheTimeout);
+            return formattedData;
+            
+        } catch (error) {
+            this.logger.error('Country info fetch failed', { error: error.message, countryName });
+            throw new Error(`Country info fetch failed: ${error.message}`);
+        }
     }
 } 
