@@ -483,42 +483,57 @@ p {
 /* Weather overlay on destination cards */
 .destination-weather {
     position: absolute;
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
+    top: 12px;
+    right: 12px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: var(--radius-md);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    box-shadow: var(--shadow-light);
-    min-width: 80px;
-    text-align: center;
+    padding: 8px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .weather-main {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--spacing-xs);
-    margin-bottom: 2px;
+    gap: 6px;
+    margin-bottom: 4px;
 }
 
 .weather-icon {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     object-fit: contain;
+    flex-shrink: 0;
 }
 
 .temperature {
     font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--primary-color);
+    font-size: 14px;
+    color: var(--primary-600);
+    white-space: nowrap;
 }
 
 .weather-condition {
-    font-size: 0.7rem;
-    color: var(--text-light);
-    text-transform: capitalize;
+    font-size: 11px;
+    color: var(--gray-600);
+    text-align: center;
     line-height: 1.2;
+}
+
+.weather-details {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--gray-500);
+}
+
+.weather-details span {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .destination-card-content {
@@ -1547,6 +1562,25 @@ p {
     .profile-card {
         flex-direction: column;
         text-align: center;
+    }
+    
+    .destination-weather {
+        top: 8px;
+        right: 8px;
+        padding: 6px 8px;
+    }
+    
+    .weather-icon {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .temperature {
+        font-size: 12px;
+    }
+    
+    .weather-condition {
+        font-size: 10px;
     }
 }
 
