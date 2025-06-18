@@ -46,8 +46,10 @@ export class LocationService {
 
             const { apiKey } = API_CONFIG.foursquare;
             
-            if (!apiKey) {
-                throw new Error('Foursquare API key is not configured');
+            // If no API key or it's empty, use mock data immediately
+            if (!apiKey || apiKey.trim() === '') {
+                this.logger.info('No API key configured, using mock data');
+                return await this.getMockLocationData(params);
             }
 
             const options = {
@@ -60,35 +62,86 @@ export class LocationService {
 
             // If searching for popular destinations, use a curated list of major cities
             if (params.query === 'popular destinations') {
-                const popularCities = [
-                    'New York',
-                    'London',
-                    'Paris',
-                    'Tokyo',
-                    'Rome',
-                    'Sydney',
-                    'Dubai',
-                    'Bangkok'
-                ];
+                try {
+                    const popularCities = [
+                        'New York',
+                        'London', 
+                        'Paris',
+                        'Tokyo',
+                        'Rome',
+                        'Sydney',
+                        'Dubai',
+                        'Bangkok'
+                    ];
 
-                const searchPromises = popularCities.map(city => 
-                    this.searchCity(city, options)
-                );
+                    const searchPromises = popularCities.map(city => 
+                        this.searchCity(city, options).catch(() => []) // Handle individual city failures
+                    );
 
-                const results = await Promise.all(searchPromises);
-                const destinations = results.flat().map(place => this.formatPlaceData(place));
-                
-                this.setCache(cacheKey, destinations, this.cacheTimeout);
-                return destinations;
+                    const results = await Promise.all(searchPromises);
+                    const destinations = results.flat().map(place => this.formatPlaceData(place));
+                    
+                    // If we got no results from API, use mock data
+                    if (destinations.length === 0) {
+                        return await this.getMockLocationData(params);
+                    }
+                    
+                    this.setCache(cacheKey, destinations, this.cacheTimeout);
+                    return destinations;
+                } catch (error) {
+                    this.logger.warn('API call failed, using mock data', error);
+                    return await this.getMockLocationData(params);
+                }
             }
 
             // Regular search
+            try {
+                const searchParams = new URLSearchParams({
+                    query: params.query || '',
+                    near: params.near || 'New York',
+                    categories: '16000',
+                    sort: 'RATING',
+                    limit: 50,
+                    fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+                });
+
+                const response = await fetch(
+                    `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                    options
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const places = data.results.map(place => this.formatPlaceData(place));
+                
+                this.setCache(cacheKey, places, this.cacheTimeout);
+                return places;
+            } catch (error) {
+                this.logger.warn('API call failed, using mock data', error);
+                return await this.getMockLocationData(params);
+            }
+            
+        } catch (error) {
+            this.logger.error('Location search failed, falling back to mock data', { error: error.message, params });
+            // Always fall back to mock data on any error
+            return await this.getMockLocationData(params);
+        }
+    }
+
+    /**
+     * Search for a specific city
+     * @private
+     */
+    async searchCity(city, options) {
+        try {
             const searchParams = new URLSearchParams({
-                query: params.query || '',
-                near: params.near || 'New York',
+                query: city,
                 categories: '16000',
                 sort: 'RATING',
-                limit: 50,
+                limit: 1,
                 fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
             });
 
@@ -98,52 +151,16 @@ export class LocationService {
             );
 
             if (!response.ok) {
-                const errorText = await response.text();
-                this.logger.error('Foursquare API error', { 
-                    status: response.status, 
-                    statusText: response.statusText,
-                    error: errorText
-                });
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                this.logger.warn(`Failed to search for city: ${city}`);
+                return [];
             }
 
             const data = await response.json();
-            const places = data.results.map(place => this.formatPlaceData(place));
-            
-            this.setCache(cacheKey, places, this.cacheTimeout);
-            return places;
-            
+            return data.results;
         } catch (error) {
-            this.logger.error('Location search failed', { error: error.message, params });
-            throw new Error(`Location search failed: ${error.message}`);
-        }
-    }
-
-    /**
-     * Search for a specific city
-     * @private
-     */
-    async searchCity(city, options) {
-        const searchParams = new URLSearchParams({
-            query: city,
-            categories: '16000',
-            sort: 'RATING',
-            limit: 1,
-            fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
-        });
-
-        const response = await fetch(
-            `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
-            options
-        );
-
-        if (!response.ok) {
-            this.logger.warn(`Failed to search for city: ${city}`);
+            this.logger.warn(`Error searching for city: ${city}`, error);
             return [];
         }
-
-        const data = await response.json();
-        return data.results;
     }
 
     /**
@@ -161,47 +178,51 @@ export class LocationService {
 
             const { apiKey } = API_CONFIG.foursquare;
             
-            const options = {
-                method: 'GET',
-                headers: {
-                    'accept': 'application/json',
-                    'Authorization': apiKey
-                }
-            };
-
-            // Build search URL with parameters
-            const searchParams = new URLSearchParams({
-                near: params.near || '',
-                categories: params.categories || '16000', // Default to Landmarks and Outdoors
-                sort: 'RATING',
-                limit: 50,
-                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
-            });
-
-            const response = await fetch(
-                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
-                options
-            );
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                this.logger.error('Foursquare API error', { 
-                    status: response.status, 
-                    statusText: response.statusText,
-                    error: errorText
-                });
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            // If no API key, use mock data
+            if (!apiKey || apiKey.trim() === '') {
+                return await this.getMockPOIData(params);
             }
 
-            const data = await response.json();
-            const pois = data.results.map(place => this.formatPlaceData(place));
-            
-            this.setCache(cacheKey, pois, this.cacheTimeout);
-            return pois;
+            try {
+                const options = {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json',
+                        'Authorization': apiKey
+                    }
+                };
+
+                // Build search URL with parameters
+                const searchParams = new URLSearchParams({
+                    near: params.near || '',
+                    categories: params.categories || '16000', // Default to Landmarks and Outdoors
+                    sort: 'RATING',
+                    limit: 50,
+                    fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+                });
+
+                const response = await fetch(
+                    `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                    options
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const pois = data.results.map(place => this.formatPlaceData(place));
+                
+                this.setCache(cacheKey, pois, this.cacheTimeout);
+                return pois;
+            } catch (error) {
+                this.logger.warn('POI API call failed, using mock data', error);
+                return await this.getMockPOIData(params);
+            }
             
         } catch (error) {
-            this.logger.error('POI search failed', { error: error.message, params });
-            throw new Error(`POI search failed: ${error.message}`);
+            this.logger.error('POI search failed, falling back to mock data', { error: error.message, params });
+            return await this.getMockPOIData(params);
         }
     }
 

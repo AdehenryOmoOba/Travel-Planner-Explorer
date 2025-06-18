@@ -278,15 +278,26 @@ class TravelPlannerApp {
      */
     async loadPopularDestinations() {
         try {
+            this.logger.info('Loading popular destinations...');
+            
             // Use location service to get popular destinations
             const destinations = await this.services.location.searchLocations({
                 query: 'popular destinations',
                 type: 'city'
             });
-            this.renderPopularDestinations(destinations);
+            
+            // Ensure we have destinations to render
+            if (destinations && destinations.length > 0) {
+                this.renderPopularDestinations(destinations);
+                this.logger.info(`Loaded ${destinations.length} popular destinations`);
+            } else {
+                // If no destinations returned, use fallback
+                this.logger.warn('No destinations returned from service, using fallback');
+                this.renderPopularDestinations(this.getFallbackDestinations());
+            }
         } catch (error) {
-            this.logger.warn('Failed to load popular destinations', error);
-            // Load fallback data
+            this.logger.error('Failed to load popular destinations, using fallback', error);
+            // Always load fallback data on error
             this.renderPopularDestinations(this.getFallbackDestinations());
         }
     }
@@ -650,7 +661,7 @@ class TravelPlannerApp {
 
         container.innerHTML = destinations.map(destination => `
             <div class="destination-card" data-destination="${destination.id}">
-                <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop'">
                 <div class="destination-card-content">
                     <h3>${destination.name}</h3>
                     <p>${destination.description}</p>
@@ -857,7 +868,7 @@ class TravelPlannerApp {
     }
 
     /**
-     * Handle hero search
+     * Handle hero search from home page
      */
     async handleHeroSearch() {
         const searchInput = document.getElementById('hero-search');
@@ -867,11 +878,114 @@ class TravelPlannerApp {
         }
         
         const query = searchInput.value.trim();
+        this.logger.info('Hero search initiated', { query });
         
-        // Navigate to explore page with search query
+        try {
+            UIManager.showLoading();
+            
+            // Perform search for destinations
+            const results = await this.services.location.searchLocations({ query });
+            
+            if (results && results.length > 0) {
+                // Show results on home page first
+                this.displayHeroSearchResults(results, query);
+                UIManager.showToast(`Found ${results.length} results for "${query}"`, 'success');
+            } else {
+                UIManager.showToast('No destinations found. Try a different search term.', 'info');
+            }
+        } catch (error) {
+            this.handleError('Search failed', error);
+        } finally {
+            UIManager.hideLoading();
+        }
+    }
+
+    /**
+     * Display hero search results on home page
+     */
+    displayHeroSearchResults(results, query) {
+        // Create or update search results section on home page
+        let resultsSection = document.getElementById('hero-search-results');
+        
+        if (!resultsSection) {
+            // Create results section if it doesn't exist
+            const featuredSection = document.querySelector('.featured-section');
+            if (featuredSection) {
+                resultsSection = document.createElement('section');
+                resultsSection.id = 'hero-search-results';
+                resultsSection.className = 'search-results-section';
+                featuredSection.parentNode.insertBefore(resultsSection, featuredSection);
+            }
+        }
+        
+        if (resultsSection) {
+            resultsSection.innerHTML = `
+                <div class="container">
+                    <div class="search-results-header">
+                        <h2>Search Results for "${query}"</h2>
+                        <p>Found ${results.length} destinations</p>
+                        <button class="btn btn-outline" onclick="TravelApp.viewAllResults('${query}')">
+                            <i class="fas fa-search-plus"></i>
+                            View All in Explore
+                        </button>
+                    </div>
+                    <div class="destination-grid">
+                        ${results.slice(0, 6).map(result => this.renderDestinationCard(result)).join('')}
+                    </div>
+                </div>
+            `;
+            
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    /**
+     * Render destination card for search results
+     */
+    renderDestinationCard(destination) {
+        return `
+            <div class="destination-card" data-destination="${destination.id}">
+                <img src="${destination.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'}" 
+                     alt="${destination.name}" 
+                     loading="lazy" 
+                     onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                <div class="destination-card-content">
+                    <h3>${destination.name}</h3>
+                    <p>${destination.description || 'Discover this amazing destination'}</p>
+                    <div class="destination-meta">
+                        <span class="rating">★ ${destination.rating || '4.5'}</span>
+                        <span class="best-time">${destination.bestTimeToVisit || 'Year-round'}</span>
+                    </div>
+                    <div class="destination-actions">
+                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-eye"></i>
+                            Explore
+                        </button>
+                        <button class="btn btn-primary add-to-trip-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-plus"></i>
+                            Add to Trip
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * View all search results in explore page
+     */
+    async viewAllResults(query) {
+        // Navigate to explore page
         this.modules.navigation.navigateTo('explore');
         
-        // Perform search
+        // Set the search input and perform search
+        const exploreSearch = document.getElementById('explore-search');
+        if (exploreSearch) {
+            exploreSearch.value = query;
+        }
+        
+        // Perform search on explore page
         await this.performSearch(query, 'locations');
     }
 
