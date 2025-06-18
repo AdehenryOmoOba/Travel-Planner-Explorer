@@ -454,45 +454,138 @@ p {
     overflow: hidden;
     box-shadow: var(--shadow-light);
     transition: all var(--transition-medium);
-    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .destination-card:hover {
     transform: translateY(-5px);
-    box-shadow: var(--shadow-heavy);
+    box-shadow: var(--shadow-medium);
+}
+
+.destination-image-container {
+    position: relative;
+    overflow: hidden;
 }
 
 .destination-card img {
     width: 100%;
     height: 200px;
     object-fit: cover;
+    transition: transform var(--transition-medium);
+}
+
+.destination-card:hover img {
+    transform: scale(1.05);
+}
+
+/* Weather overlay on destination cards */
+.destination-weather {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    box-shadow: var(--shadow-light);
+    min-width: 80px;
+    text-align: center;
+}
+
+.weather-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    margin-bottom: 2px;
+}
+
+.weather-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.temperature {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--primary-color);
+}
+
+.weather-condition {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    text-transform: capitalize;
+    line-height: 1.2;
 }
 
 .destination-card-content {
     padding: var(--spacing-md);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .destination-card h3 {
     margin-bottom: var(--spacing-xs);
-    color: var(--primary-color);
+    color: var(--text-dark);
 }
 
 .destination-card p {
+    color: var(--text-light);
     font-size: 0.9rem;
+    margin-bottom: var(--spacing-md);
+    flex: 1;
+}
+
+.destination-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
     margin-bottom: var(--spacing-sm);
+    font-size: 0.85rem;
+}
+
+.destination-meta .rating {
+    color: #ffa500;
+    font-weight: 500;
+}
+
+.destination-meta .best-time {
+    color: var(--text-light);
+}
+
+.destination-highlights {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.highlight-tag {
+    background: var(--accent-cream);
+    color: var(--primary-color);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
 }
 
 .destination-card-footer {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
 }
 
 .destination-rating {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    color: var(--secondary-color);
+    color: #ffa500;
+    font-weight: 500;
 }
 
 .features-grid {

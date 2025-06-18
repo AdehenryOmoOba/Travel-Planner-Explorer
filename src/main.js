@@ -288,17 +288,30 @@ class TravelPlannerApp {
             
             // Ensure we have destinations to render
             if (destinations && destinations.length > 0) {
-                this.renderPopularDestinations(destinations);
-                this.logger.info(`Loaded ${destinations.length} popular destinations`);
+                // Fetch weather data for each destination
+                this.logger.info('Fetching weather data for destinations...');
+                const destinationsWithWeather = await this.services.location.getWeatherForDestinations(destinations);
+                
+                this.renderPopularDestinations(destinationsWithWeather);
+                this.logger.info(`Loaded ${destinationsWithWeather.length} popular destinations with weather data`);
             } else {
                 // If no destinations returned, use fallback
                 this.logger.warn('No destinations returned from service, using fallback');
-                this.renderPopularDestinations(this.getFallbackDestinations());
+                const fallbackDestinations = this.getFallbackDestinations();
+                const fallbackWithWeather = await this.services.location.getWeatherForDestinations(fallbackDestinations);
+                this.renderPopularDestinations(fallbackWithWeather);
             }
         } catch (error) {
             this.logger.error('Failed to load popular destinations, using fallback', error);
             // Always load fallback data on error
-            this.renderPopularDestinations(this.getFallbackDestinations());
+            const fallbackDestinations = this.getFallbackDestinations();
+            try {
+                const fallbackWithWeather = await this.services.location.getWeatherForDestinations(fallbackDestinations);
+                this.renderPopularDestinations(fallbackWithWeather);
+            } catch (weatherError) {
+                this.logger.warn('Failed to load weather for fallback destinations', weatherError);
+                this.renderPopularDestinations(fallbackDestinations);
+            }
         }
     }
 
@@ -659,22 +672,44 @@ class TravelPlannerApp {
         const container = document.getElementById('popular-destinations');
         if (!container) return;
 
-        container.innerHTML = destinations.map(destination => `
-            <div class="destination-card" data-destination="${destination.id}">
-                <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop'">
-                <div class="destination-card-content">
-                    <h3>${destination.name}</h3>
-                    <p>${destination.description}</p>
-                    <div class="destination-meta">
-                        <span class="rating">★ ${destination.rating}</span>
-                        <span class="best-time">${destination.bestTimeToVisit}</span>
+        container.innerHTML = destinations.map(destination => {
+            // Render weather info if available
+            const weatherHtml = destination.weather ? `
+                <div class="destination-weather">
+                    <div class="weather-main">
+                        <img src="${destination.weather.icon}" alt="${destination.weather.condition}" class="weather-icon" onerror="this.style.display='none'">
+                        <span class="temperature">${destination.weather.temperature}°C</span>
                     </div>
-                    <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
-                        Explore
-                    </button>
+                    <div class="weather-condition">${destination.weather.condition}</div>
                 </div>
-            </div>
-        `).join('');
+            ` : '';
+
+            return `
+                <div class="destination-card" data-destination="${destination.id}">
+                    <div class="destination-image-container">
+                        <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop'">
+                        ${weatherHtml}
+                    </div>
+                    <div class="destination-card-content">
+                        <h3>${destination.name}</h3>
+                        <p>${destination.description}</p>
+                        <div class="destination-meta">
+                            <span class="rating">★ ${destination.rating}</span>
+                            <span class="best-time">${destination.bestTimeToVisit}</span>
+                        </div>
+                        <div class="destination-highlights">
+                            ${destination.highlights ? destination.highlights.slice(0, 3).map(highlight => 
+                                `<span class="highlight-tag">${highlight}</span>`
+                            ).join('') : ''}
+                        </div>
+                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-eye"></i>
+                            Explore
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
         // Add event listeners for explore buttons
         container.querySelectorAll('.explore-destination-btn').forEach(btn => {

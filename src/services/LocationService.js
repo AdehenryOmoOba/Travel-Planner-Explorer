@@ -290,63 +290,115 @@ export class LocationService {
 
             const { baseUrl, apiKey, endpoints } = API_CONFIG.weather;
             
-            // Get current weather
-            const currentWeatherResponse = await axios.get(`${baseUrl}${endpoints.current}`, {
-                params: {
-                    lat: params.lat,
-                    lon: params.lng,
-                    appid: apiKey,
-                    units: 'metric'
+            // If no API key, use mock data
+            if (!apiKey || apiKey.trim() === '') {
+                this.logger.info('No weather API key configured, using mock data');
+                return await this.getMockWeatherData(params);
+            }
+
+            try {
+                // Get current weather
+                const currentWeatherResponse = await fetch(`${baseUrl}${endpoints.current}?lat=${params.lat}&lon=${params.lng}&appid=${apiKey}&units=metric`);
+
+                if (!currentWeatherResponse.ok) {
+                    throw new Error(`HTTP error! status: ${currentWeatherResponse.status}`);
+                }
+
+                const currentWeatherData = await currentWeatherResponse.json();
+
+                const weatherData = {
+                    current: {
+                        temperature: Math.round(currentWeatherData.main.temp),
+                        condition: currentWeatherData.weather[0].main,
+                        description: currentWeatherData.weather[0].description,
+                        humidity: currentWeatherData.main.humidity,
+                        windSpeed: Math.round(currentWeatherData.wind.speed * 3.6), // Convert m/s to km/h
+                        visibility: currentWeatherData.visibility / 1000, // Convert m to km
+                        icon: `https://openweathermap.org/img/w/${currentWeatherData.weather[0].icon}.png`
+                    },
+                    location: {
+                        coordinates: { lat: params.lat, lng: params.lng },
+                        timezone: currentWeatherData.timezone,
+                        sunrise: new Date(currentWeatherData.sys.sunrise * 1000).toLocaleTimeString(),
+                        sunset: new Date(currentWeatherData.sys.sunset * 1000).toLocaleTimeString()
+                    }
+                };
+
+                // Get forecast if requested
+                if (params.forecast) {
+                    const forecastResponse = await fetch(`${baseUrl}${endpoints.forecast}?lat=${params.lat}&lon=${params.lng}&appid=${apiKey}&units=metric`);
+
+                    if (forecastResponse.ok) {
+                        const forecastData = await forecastResponse.json();
+                        weatherData.forecast = forecastData.list
+                            .filter(item => item.dt_txt.includes('12:00:00')) // Get one forecast per day
+                            .slice(0, 5)
+                            .map(item => ({
+                                date: item.dt_txt.split(' ')[0],
+                                high: Math.round(item.main.temp_max),
+                                low: Math.round(item.main.temp_min),
+                                condition: item.weather[0].main,
+                                description: item.weather[0].description,
+                                precipitation: Math.round(item.pop * 100), // Convert probability to percentage
+                                icon: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`
+                            }));
+                    }
+                }
+
+                this.setCache(cacheKey, weatherData, 30 * 60 * 1000); // Cache for 30 minutes
+                return weatherData;
+            } catch (error) {
+                this.logger.warn('Weather API call failed, using mock data', error);
+                return await this.getMockWeatherData(params);
+            }
+            
+        } catch (error) {
+            this.logger.error('Weather fetch failed, falling back to mock data', { error: error.message, params });
+            return await this.getMockWeatherData(params);
+        }
+    }
+
+    /**
+     * Get weather data for multiple destinations
+     * @param {Array} destinations - Array of destinations with coordinates
+     * @returns {Promise<Array>} Array of destinations with weather data
+     */
+    async getWeatherForDestinations(destinations) {
+        try {
+            this.logger.info('Fetching weather for multiple destinations', { count: destinations.length });
+            
+            const weatherPromises = destinations.map(async (destination) => {
+                try {
+                    const weather = await this.getWeatherInfo({
+                        lat: destination.coordinates.lat,
+                        lng: destination.coordinates.lng
+                    });
+                    
+                    return {
+                        ...destination,
+                        weather: weather.current
+                    };
+                } catch (error) {
+                    this.logger.warn(`Failed to get weather for ${destination.name}`, error);
+                    // Return destination without weather data if individual fetch fails
+                    return {
+                        ...destination,
+                        weather: null
+                    };
                 }
             });
 
-            const weatherData = {
-                current: {
-                    temperature: Math.round(currentWeatherResponse.data.main.temp),
-                    condition: currentWeatherResponse.data.weather[0].main,
-                    humidity: currentWeatherResponse.data.main.humidity,
-                    windSpeed: Math.round(currentWeatherResponse.data.wind.speed * 3.6), // Convert m/s to km/h
-                    visibility: currentWeatherResponse.data.visibility / 1000, // Convert m to km
-                    icon: `https://openweathermap.org/img/w/${currentWeatherResponse.data.weather[0].icon}.png`
-                },
-                location: {
-                    coordinates: { lat: params.lat, lng: params.lng },
-                    timezone: currentWeatherResponse.data.timezone,
-                    sunrise: new Date(currentWeatherResponse.data.sys.sunrise * 1000).toLocaleTimeString(),
-                    sunset: new Date(currentWeatherResponse.data.sys.sunset * 1000).toLocaleTimeString()
-                }
-            };
-
-            // Get forecast if requested
-            if (params.forecast) {
-                const forecastResponse = await axios.get(`${baseUrl}${endpoints.forecast}`, {
-                    params: {
-                        lat: params.lat,
-                        lon: params.lng,
-                        appid: apiKey,
-                        units: 'metric'
-                    }
-                });
-
-                weatherData.forecast = forecastResponse.data.list
-                    .filter(item => item.dt_txt.includes('12:00:00')) // Get one forecast per day
-                    .slice(0, 5)
-                    .map(item => ({
-                        date: item.dt_txt.split(' ')[0],
-                        high: Math.round(item.main.temp_max),
-                        low: Math.round(item.main.temp_min),
-                        condition: item.weather[0].main,
-                        precipitation: Math.round(item.pop * 100), // Convert probability to percentage
-                        icon: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`
-                    }));
-            }
-
-            this.setCache(cacheKey, weatherData, 30 * 60 * 1000); // Cache for 30 minutes
-            return weatherData;
+            const destinationsWithWeather = await Promise.all(weatherPromises);
+            this.logger.info('Weather data fetched for destinations', { 
+                successCount: destinationsWithWeather.filter(d => d.weather).length,
+                totalCount: destinations.length
+            });
             
+            return destinationsWithWeather;
         } catch (error) {
-            this.logger.error('Weather fetch failed', { error: error.message, params });
-            throw new Error(`Weather fetch failed: ${error.message}`);
+            this.logger.error('Failed to fetch weather for destinations', error);
+            // Return original destinations if batch fetch fails
+            return destinations;
         }
     }
 
@@ -493,7 +545,11 @@ export class LocationService {
                     reviewCount: 15420,
                     highlights: ['Eiffel Tower', 'Louvre Museum', 'Notre-Dame', 'Champs-Élysées'],
                     bestTimeToVisit: 'Apr-Oct',
-                    averageStay: '4-6 days'
+                    averageStay: '4-6 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 48.8566,
+                        lng: 2.3522
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'tokyo-japan',
@@ -511,7 +567,11 @@ export class LocationService {
                     reviewCount: 12890,
                     highlights: ['Shibuya Crossing', 'Tokyo Tower', 'Senso-ji Temple', 'Harajuku'],
                     bestTimeToVisit: 'Mar-May, Sep-Nov',
-                    averageStay: '5-7 days'
+                    averageStay: '5-7 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 35.6762,
+                        lng: 139.6503
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'newyork-usa',
@@ -529,7 +589,11 @@ export class LocationService {
                     reviewCount: 18750,
                     highlights: ['Times Square', 'Central Park', 'Statue of Liberty', 'Broadway'],
                     bestTimeToVisit: 'Apr-Jun, Sep-Nov',
-                    averageStay: '4-6 days'
+                    averageStay: '4-6 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 40.7128,
+                        lng: -74.0060
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'london-uk',
@@ -547,7 +611,11 @@ export class LocationService {
                     reviewCount: 14320,
                     highlights: ['Big Ben', 'Tower Bridge', 'British Museum', 'Buckingham Palace'],
                     bestTimeToVisit: 'May-Sep',
-                    averageStay: '3-5 days'
+                    averageStay: '3-5 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 51.5074,
+                        lng: -0.1278
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'rome-italy',
@@ -565,7 +633,11 @@ export class LocationService {
                     reviewCount: 11680,
                     highlights: ['Colosseum', 'Vatican City', 'Trevi Fountain', 'Roman Forum'],
                     bestTimeToVisit: 'Apr-Jun, Sep-Oct',
-                    averageStay: '3-4 days'
+                    averageStay: '3-4 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 41.9028,
+                        lng: 12.4964
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'barcelona-spain',
@@ -583,7 +655,11 @@ export class LocationService {
                     reviewCount: 9870,
                     highlights: ['Sagrada Familia', 'Park Güell', 'Las Ramblas', 'Gothic Quarter'],
                     bestTimeToVisit: 'May-Jun, Sep-Oct',
-                    averageStay: '3-4 days'
+                    averageStay: '3-4 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 41.3851,
+                        lng: 2.1734
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'dubai-uae',
@@ -601,7 +677,11 @@ export class LocationService {
                     reviewCount: 8950,
                     highlights: ['Burj Khalifa', 'Dubai Mall', 'Palm Jumeirah', 'Desert Safari'],
                     bestTimeToVisit: 'Nov-Mar',
-                    averageStay: '3-5 days'
+                    averageStay: '3-5 days',
+                    weather: await this.getWeatherInfo({
+                        lat: 25.2048,
+                        lng: 55.2708
+                    }).then(weather => weather.current)
                 },
                 {
                     id: 'sydney-australia',
@@ -619,7 +699,11 @@ export class LocationService {
                     reviewCount: 7650,
                     highlights: ['Sydney Opera House', 'Harbour Bridge', 'Bondi Beach', 'The Rocks'],
                     bestTimeToVisit: 'Sep-Nov, Mar-May',
-                    averageStay: '4-6 days'
+                    averageStay: '4-6 days',
+                    weather: await this.getWeatherInfo({
+                        lat: -33.8688,
+                        lng: 151.2093
+                    }).then(weather => weather.current)
                 }
             ];
         }
@@ -642,7 +726,11 @@ export class LocationService {
                 reviewCount: Math.floor(Math.random() * 5000) + 500,
                 highlights: ['Historic Architecture', 'Cultural Sites', 'Local Cuisine', 'Shopping'],
                 bestTimeToVisit: 'April - October',
-                averageStay: '3-5 days'
+                averageStay: '3-5 days',
+                weather: await this.getWeatherInfo({
+                    lat: 40.7128 + (Math.random() - 0.5) * 0.1,
+                    lng: -74.0060 + (Math.random() - 0.5) * 0.1
+                }).then(weather => weather.current)
             },
             {
                 id: `LOC${Date.now()}_2`,
@@ -660,7 +748,11 @@ export class LocationService {
                 reviewCount: Math.floor(Math.random() * 2000) + 200,
                 highlights: ['Museums', 'Historic Buildings', 'Walking Tours', 'Art Galleries'],
                 bestTimeToVisit: 'Year-round',
-                averageStay: '1-2 days'
+                averageStay: '1-2 days',
+                weather: await this.getWeatherInfo({
+                    lat: 40.7128 + (Math.random() - 0.5) * 0.05,
+                    lng: -74.0060 + (Math.random() - 0.5) * 0.05
+                }).then(weather => weather.current)
             },
             {
                 id: `LOC${Date.now()}_3`,
@@ -678,7 +770,11 @@ export class LocationService {
                 reviewCount: Math.floor(Math.random() * 1500) + 300,
                 highlights: ['Scenic Views', 'Restaurants', 'Walking Paths', 'Boat Tours'],
                 bestTimeToVisit: 'May - September',
-                averageStay: '1-2 days'
+                averageStay: '1-2 days',
+                weather: await this.getWeatherInfo({
+                    lat: 40.7128 + (Math.random() - 0.5) * 0.08,
+                    lng: -74.0060 + (Math.random() - 0.5) * 0.08
+                }).then(weather => weather.current)
             }
         ];
 
@@ -747,19 +843,148 @@ export class LocationService {
     async getMockWeatherData(params) {
         await new Promise(resolve => setTimeout(resolve, 400));
 
-        const conditions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Sunny'];
-        const currentCondition = conditions[Math.floor(Math.random() * conditions.length)];
-        const temperature = Math.round(15 + Math.random() * 20); // 15-35°C
+        // City-specific weather patterns for more realistic mock data
+        const cityWeatherPatterns = {
+            // Paris coordinates
+            '48.8566,2.3522': {
+                conditions: ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain'],
+                tempRange: [8, 22], // 8-22°C
+                humidity: [50, 80],
+                icon: '01d'
+            },
+            // Tokyo coordinates  
+            '35.6762,139.6503': {
+                conditions: ['Clear', 'Partly Cloudy', 'Humid', 'Light Rain'],
+                tempRange: [12, 28], // 12-28°C
+                humidity: [60, 85],
+                icon: '02d'
+            },
+            // New York coordinates
+            '40.7128,-74.0060': {
+                conditions: ['Clear', 'Partly Cloudy', 'Cloudy', 'Snow'],
+                tempRange: [5, 25], // 5-25°C
+                humidity: [45, 75],
+                icon: '03d'
+            },
+            // London coordinates
+            '51.5074,-0.1278': {
+                conditions: ['Cloudy', 'Light Rain', 'Overcast', 'Partly Cloudy'],
+                tempRange: [6, 18], // 6-18°C
+                humidity: [65, 85],
+                icon: '04d'
+            },
+            // Rome coordinates
+            '41.9028,12.4964': {
+                conditions: ['Clear', 'Sunny', 'Partly Cloudy', 'Warm'],
+                tempRange: [10, 28], // 10-28°C
+                humidity: [40, 70],
+                icon: '01d'
+            },
+            // Barcelona coordinates
+            '41.3851,2.1734': {
+                conditions: ['Clear', 'Sunny', 'Partly Cloudy', 'Warm'],
+                tempRange: [12, 26], // 12-26°C
+                humidity: [50, 75],
+                icon: '02d'
+            },
+            // Dubai coordinates
+            '25.2048,55.2708': {
+                conditions: ['Clear', 'Sunny', 'Hot', 'Very Hot'],
+                tempRange: [20, 42], // 20-42°C
+                humidity: [30, 60],
+                icon: '01d'
+            },
+            // Sydney coordinates
+            '-33.8688,151.2093': {
+                conditions: ['Clear', 'Partly Cloudy', 'Sunny', 'Mild'],
+                tempRange: [15, 25], // 15-25°C
+                humidity: [50, 75],
+                icon: '02d'
+            }
+        };
+
+        // Create coordinate key for lookup
+        const coordKey = `${Math.round(params.lat * 10000) / 10000},${Math.round(params.lng * 10000) / 10000}`;
+        
+        // Find closest matching city pattern or use default
+        let weatherPattern = cityWeatherPatterns[coordKey];
+        if (!weatherPattern) {
+            // Find closest city by coordinates
+            const cities = Object.keys(cityWeatherPatterns);
+            let closestCity = cities[0];
+            let minDistance = Infinity;
+            
+            cities.forEach(cityCoord => {
+                const [cityLat, cityLng] = cityCoord.split(',').map(Number);
+                const distance = Math.sqrt(
+                    Math.pow(params.lat - cityLat, 2) + 
+                    Math.pow(params.lng - cityLng, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestCity = cityCoord;
+                }
+            });
+            
+            weatherPattern = cityWeatherPatterns[closestCity];
+        }
+
+        // Default pattern if no match found
+        if (!weatherPattern) {
+            weatherPattern = {
+                conditions: ['Clear', 'Partly Cloudy', 'Cloudy'],
+                tempRange: [15, 25],
+                humidity: [50, 70],
+                icon: '01d'
+            };
+        }
+
+        const currentCondition = weatherPattern.conditions[Math.floor(Math.random() * weatherPattern.conditions.length)];
+        const temperature = Math.round(weatherPattern.tempRange[0] + Math.random() * (weatherPattern.tempRange[1] - weatherPattern.tempRange[0]));
+        const humidity = Math.round(weatherPattern.humidity[0] + Math.random() * (weatherPattern.humidity[1] - weatherPattern.humidity[0]));
+
+        // Map conditions to more descriptive text
+        const conditionDescriptions = {
+            'Clear': 'clear sky',
+            'Partly Cloudy': 'few clouds',
+            'Cloudy': 'scattered clouds',
+            'Light Rain': 'light rain',
+            'Overcast': 'overcast clouds',
+            'Sunny': 'clear sky',
+            'Hot': 'clear sky',
+            'Very Hot': 'clear sky',
+            'Humid': 'few clouds',
+            'Warm': 'clear sky',
+            'Mild': 'few clouds',
+            'Snow': 'light snow'
+        };
+
+        // Map conditions to appropriate weather icons
+        const conditionIcons = {
+            'Clear': '01d',
+            'Partly Cloudy': '02d',
+            'Cloudy': '03d',
+            'Light Rain': '10d',
+            'Overcast': '04d',
+            'Sunny': '01d',
+            'Hot': '01d',
+            'Very Hot': '01d',
+            'Humid': '02d',
+            'Warm': '01d',
+            'Mild': '02d',
+            'Snow': '13d'
+        };
 
         const weather = {
             current: {
                 temperature,
                 condition: currentCondition,
-                humidity: Math.round(40 + Math.random() * 40), // 40-80%
+                description: conditionDescriptions[currentCondition] || 'clear sky',
+                humidity,
                 windSpeed: Math.round(Math.random() * 20), // 0-20 km/h
                 visibility: Math.round(8 + Math.random() * 7), // 8-15 km
                 uvIndex: Math.floor(Math.random() * 11), // 0-10
-                icon: `https://openweathermap.org/img/w/${currentCondition.toLowerCase().replace(' ', '')}.png`
+                icon: `https://openweathermap.org/img/w/${conditionIcons[currentCondition] || weatherPattern.icon}.png`
             },
             location: {
                 coordinates: { lat: params.lat, lng: params.lng },
@@ -772,13 +997,17 @@ export class LocationService {
         if (params.forecast) {
             weather.forecast = [];
             for (let i = 1; i <= 5; i++) {
+                const forecastTemp = temperature + Math.round((Math.random() - 0.5) * 6);
+                const forecastCondition = weatherPattern.conditions[Math.floor(Math.random() * weatherPattern.conditions.length)];
+                
                 weather.forecast.push({
                     date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    high: temperature + Math.round((Math.random() - 0.5) * 6),
-                    low: temperature - Math.round(Math.random() * 8 + 5),
-                    condition: conditions[Math.floor(Math.random() * conditions.length)],
+                    high: forecastTemp + Math.round(Math.random() * 3),
+                    low: forecastTemp - Math.round(Math.random() * 5 + 3),
+                    condition: forecastCondition,
+                    description: conditionDescriptions[forecastCondition] || 'clear sky',
                     precipitation: Math.round(Math.random() * 30), // 0-30%
-                    icon: `https://openweathermap.org/img/w/day.png`
+                    icon: `https://openweathermap.org/img/w/${conditionIcons[forecastCondition] || weatherPattern.icon}.png`
                 });
             }
         }
