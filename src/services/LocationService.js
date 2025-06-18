@@ -63,31 +63,31 @@ export class LocationService {
             // If searching for popular destinations, use a curated list of major cities
             if (params.query === 'popular destinations') {
                 try {
-                    const popularCities = [
-                        'New York',
-                        'London', 
-                        'Paris',
-                        'Tokyo',
-                        'Rome',
-                        'Sydney',
-                        'Dubai',
-                        'Bangkok'
-                    ];
+                const popularCities = [
+                    'New York',
+                    'London',
+                    'Paris',
+                    'Tokyo',
+                    'Rome',
+                    'Sydney',
+                    'Dubai',
+                    'Bangkok'
+                ];
 
-                    const searchPromises = popularCities.map(city => 
+                const searchPromises = popularCities.map(city => 
                         this.searchCity(city, options).catch(() => []) // Handle individual city failures
-                    );
+                );
 
-                    const results = await Promise.all(searchPromises);
-                    const destinations = results.flat().map(place => this.formatPlaceData(place));
+                const results = await Promise.all(searchPromises);
+                const destinations = results.flat().map(place => this.formatPlaceData(place));
                     
                     // If we got no results from API, use mock data
                     if (destinations.length === 0) {
                         return await this.getMockLocationData(params);
                     }
-                    
-                    this.setCache(cacheKey, destinations, this.cacheTimeout);
-                    return destinations;
+                
+                this.setCache(cacheKey, destinations, this.cacheTimeout);
+                return destinations;
                 } catch (error) {
                     this.logger.warn('API call failed, using mock data', error);
                     return await this.getMockLocationData(params);
@@ -96,29 +96,29 @@ export class LocationService {
 
             // Regular search
             try {
-                const searchParams = new URLSearchParams({
-                    query: params.query || '',
-                    near: params.near || 'New York',
-                    categories: '16000',
-                    sort: 'RATING',
-                    limit: 50,
-                    fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
-                });
+            const searchParams = new URLSearchParams({
+                query: params.query || '',
+                near: params.near || 'New York',
+                categories: '16000',
+                sort: 'RATING',
+                limit: 50,
+                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+            });
 
-                const response = await fetch(
-                    `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
-                    options
-                );
+            const response = await fetch(
+                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                options
+            );
 
-                if (!response.ok) {
+            if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
-                }
+            }
 
-                const data = await response.json();
-                const places = data.results.map(place => this.formatPlaceData(place));
-                
-                this.setCache(cacheKey, places, this.cacheTimeout);
-                return places;
+            const data = await response.json();
+            const places = data.results.map(place => this.formatPlaceData(place));
+            
+            this.setCache(cacheKey, places, this.cacheTimeout);
+            return places;
             } catch (error) {
                 this.logger.warn('API call failed, using mock data', error);
                 return await this.getMockLocationData(params);
@@ -137,26 +137,26 @@ export class LocationService {
      */
     async searchCity(city, options) {
         try {
-            const searchParams = new URLSearchParams({
-                query: city,
-                categories: '16000',
-                sort: 'RATING',
-                limit: 1,
-                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
-            });
+        const searchParams = new URLSearchParams({
+            query: city,
+            categories: '16000',
+            sort: 'RATING',
+            limit: 1,
+            fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+        });
 
-            const response = await fetch(
-                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
-                options
-            );
+        const response = await fetch(
+            `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+            options
+        );
 
-            if (!response.ok) {
-                this.logger.warn(`Failed to search for city: ${city}`);
-                return [];
-            }
+        if (!response.ok) {
+            this.logger.warn(`Failed to search for city: ${city}`);
+            return [];
+        }
 
-            const data = await response.json();
-            return data.results;
+        const data = await response.json();
+        return data.results;
         } catch (error) {
             this.logger.warn(`Error searching for city: ${city}`, error);
             return [];
@@ -184,37 +184,37 @@ export class LocationService {
             }
 
             try {
-                const options = {
-                    method: 'GET',
-                    headers: {
-                        'accept': 'application/json',
-                        'Authorization': apiKey
-                    }
-                };
-
-                // Build search URL with parameters
-                const searchParams = new URLSearchParams({
-                    near: params.near || '',
-                    categories: params.categories || '16000', // Default to Landmarks and Outdoors
-                    sort: 'RATING',
-                    limit: 50,
-                    fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
-                });
-
-                const response = await fetch(
-                    `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
-                    options
-                );
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            const options = {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': apiKey
                 }
+            };
 
-                const data = await response.json();
-                const pois = data.results.map(place => this.formatPlaceData(place));
-                
-                this.setCache(cacheKey, pois, this.cacheTimeout);
-                return pois;
+            // Build search URL with parameters
+            const searchParams = new URLSearchParams({
+                near: params.near || '',
+                categories: params.categories || '16000', // Default to Landmarks and Outdoors
+                sort: 'RATING',
+                limit: 50,
+                fields: 'fsq_id,name,description,geocodes,location,categories,stats,rating,price,photos,hours,website,tel'
+            });
+
+            const response = await fetch(
+                `https://api.foursquare.com/v3/places/search?${searchParams.toString()}`,
+                options
+            );
+
+            if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const pois = data.results.map(place => this.formatPlaceData(place));
+            
+            this.setCache(cacheKey, pois, this.cacheTimeout);
+            return pois;
             } catch (error) {
                 this.logger.warn('POI API call failed, using mock data', error);
                 return await this.getMockPOIData(params);
@@ -297,7 +297,7 @@ export class LocationService {
             }
 
             try {
-                // Get current weather
+            // Get current weather
                 const currentWeatherResponse = await fetch(`${baseUrl}${endpoints.current}?lat=${params.lat}&lon=${params.lng}&appid=${apiKey}&units=metric`);
 
                 if (!currentWeatherResponse.ok) {
@@ -306,8 +306,8 @@ export class LocationService {
 
                 const currentWeatherData = await currentWeatherResponse.json();
 
-                const weatherData = {
-                    current: {
+            const weatherData = {
+                current: {
                         temperature: Math.round(currentWeatherData.main.temp),
                         condition: currentWeatherData.weather[0].main,
                         description: currentWeatherData.weather[0].description,
@@ -315,38 +315,38 @@ export class LocationService {
                         windSpeed: Math.round(currentWeatherData.wind.speed * 3.6), // Convert m/s to km/h
                         visibility: currentWeatherData.visibility / 1000, // Convert m to km
                         icon: `https://openweathermap.org/img/w/${currentWeatherData.weather[0].icon}.png`
-                    },
-                    location: {
-                        coordinates: { lat: params.lat, lng: params.lng },
+                },
+                location: {
+                    coordinates: { lat: params.lat, lng: params.lng },
                         timezone: currentWeatherData.timezone,
                         sunrise: new Date(currentWeatherData.sys.sunrise * 1000).toLocaleTimeString(),
                         sunset: new Date(currentWeatherData.sys.sunset * 1000).toLocaleTimeString()
-                    }
-                };
+                }
+            };
 
-                // Get forecast if requested
-                if (params.forecast) {
+            // Get forecast if requested
+            if (params.forecast) {
                     const forecastResponse = await fetch(`${baseUrl}${endpoints.forecast}?lat=${params.lat}&lon=${params.lng}&appid=${apiKey}&units=metric`);
 
                     if (forecastResponse.ok) {
                         const forecastData = await forecastResponse.json();
                         weatherData.forecast = forecastData.list
-                            .filter(item => item.dt_txt.includes('12:00:00')) // Get one forecast per day
-                            .slice(0, 5)
-                            .map(item => ({
-                                date: item.dt_txt.split(' ')[0],
-                                high: Math.round(item.main.temp_max),
-                                low: Math.round(item.main.temp_min),
-                                condition: item.weather[0].main,
+                    .filter(item => item.dt_txt.includes('12:00:00')) // Get one forecast per day
+                    .slice(0, 5)
+                    .map(item => ({
+                        date: item.dt_txt.split(' ')[0],
+                        high: Math.round(item.main.temp_max),
+                        low: Math.round(item.main.temp_min),
+                        condition: item.weather[0].main,
                                 description: item.weather[0].description,
-                                precipitation: Math.round(item.pop * 100), // Convert probability to percentage
-                                icon: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`
-                            }));
+                        precipitation: Math.round(item.pop * 100), // Convert probability to percentage
+                        icon: `https://openweathermap.org/img/w/${item.weather[0].icon}.png`
+                    }));
                     }
-                }
+            }
 
-                this.setCache(cacheKey, weatherData, 30 * 60 * 1000); // Cache for 30 minutes
-                return weatherData;
+            this.setCache(cacheKey, weatherData, 30 * 60 * 1000); // Cache for 30 minutes
+            return weatherData;
             } catch (error) {
                 this.logger.warn('Weather API call failed, using mock data', error);
                 return await this.getMockWeatherData(params);

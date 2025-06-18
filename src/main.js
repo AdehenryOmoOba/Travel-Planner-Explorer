@@ -685,29 +685,29 @@ class TravelPlannerApp {
             ` : '';
 
             return `
-                <div class="destination-card" data-destination="${destination.id}">
+            <div class="destination-card" data-destination="${destination.id}">
                     <div class="destination-image-container">
                         <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop'">
                         ${weatherHtml}
                     </div>
-                    <div class="destination-card-content">
-                        <h3>${destination.name}</h3>
-                        <p>${destination.description}</p>
-                        <div class="destination-meta">
-                            <span class="rating">★ ${destination.rating}</span>
-                            <span class="best-time">${destination.bestTimeToVisit}</span>
-                        </div>
+                <div class="destination-card-content">
+                    <h3>${destination.name}</h3>
+                    <p>${destination.description}</p>
+                    <div class="destination-meta">
+                        <span class="rating">★ ${destination.rating}</span>
+                        <span class="best-time">${destination.bestTimeToVisit}</span>
+                    </div>
                         <div class="destination-highlights">
                             ${destination.highlights ? destination.highlights.slice(0, 3).map(highlight => 
                                 `<span class="highlight-tag">${highlight}</span>`
                             ).join('') : ''}
                         </div>
-                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                    <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
                             <i class="fas fa-eye"></i>
-                            Explore
-                        </button>
-                    </div>
+                        Explore
+                    </button>
                 </div>
+            </div>
             `;
         }).join('');
 
