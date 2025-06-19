@@ -34,7 +34,7 @@ export class NavigationManager {
             element: document.getElementById('home-page'),
             title: 'Home - Travel Explorer',
             requiresAuth: false,
-            onEnter: () => this.onHomePageEnter(),
+            onEnter: (params) => this.onHomePageEnter(params),
             onExit: () => this.onHomePageExit()
         });
 
@@ -42,7 +42,7 @@ export class NavigationManager {
             element: document.getElementById('explore-page'),
             title: 'Explore - Travel Explorer',
             requiresAuth: false,
-            onEnter: () => this.onExplorePageEnter(),
+            onEnter: (params) => this.onExplorePageEnter(params),
             onExit: () => this.onExplorePageExit()
         });
 
@@ -50,7 +50,7 @@ export class NavigationManager {
             element: document.getElementById('planner-page'),
             title: 'Trip Planner - Travel Explorer',
             requiresAuth: true,
-            onEnter: () => this.onPlannerPageEnter(),
+            onEnter: (params) => this.onPlannerPageEnter(params),
             onExit: () => this.onPlannerPageExit()
         });
 
@@ -58,7 +58,7 @@ export class NavigationManager {
             element: document.getElementById('map-page'),
             title: 'Map - Travel Explorer',
             requiresAuth: false,
-            onEnter: () => this.onMapPageEnter(),
+            onEnter: (params) => this.onMapPageEnter(params),
             onExit: () => this.onMapPageExit()
         });
 
@@ -66,7 +66,7 @@ export class NavigationManager {
             element: document.getElementById('profile-page'),
             title: 'Profile - Travel Explorer',
             requiresAuth: true,
-            onEnter: () => this.onProfilePageEnter(),
+            onEnter: (params) => this.onProfilePageEnter(params),
             onExit: () => this.onProfilePageExit()
         });
     }
@@ -334,7 +334,7 @@ export class NavigationManager {
     }
 
     // Page-specific enter/exit handlers
-    onHomePageEnter() {
+    onHomePageEnter(params) {
         this.logger.debug('Entering home page');
         // Load popular destinations if not already loaded
         if (window.TravelApp?.modules?.api) {
@@ -350,9 +350,11 @@ export class NavigationManager {
         this.logger.debug('Entering explore page', params);
         
         // Initialize explore page functionality
-        if (window.TravelApp?.modules?.api) {
+        if (window.TravelApp?.services) {
             // Load explore data
             this.loadExploreData(params);
+        } else {
+            this.logger.warn('TravelApp services not available');
         }
     }
 
@@ -360,7 +362,7 @@ export class NavigationManager {
         this.logger.debug('Exiting explore page');
     }
 
-    onPlannerPageEnter() {
+    onPlannerPageEnter(params) {
         this.logger.debug('Entering planner page');
         
         // Load user trips
@@ -373,7 +375,7 @@ export class NavigationManager {
         this.logger.debug('Exiting planner page');
     }
 
-    onMapPageEnter() {
+    onMapPageEnter(params) {
         this.logger.debug('Entering map page');
         
         // Initialize map
@@ -389,7 +391,7 @@ export class NavigationManager {
         this.logger.debug('Exiting map page');
     }
 
-    onProfilePageEnter() {
+    onProfilePageEnter(params) {
         this.logger.debug('Entering profile page');
         
         // Load user profile data
@@ -408,23 +410,82 @@ export class NavigationManager {
     async loadExploreData(params) {
         try {
             const exploreResults = document.getElementById('explore-results');
-            if (!exploreResults) return;
+            if (!exploreResults) {
+                this.logger.warn('explore-results container not found');
+                return;
+            }
 
+            this.logger.debug('Loading explore data', { params, hasLocation: !!params?.location });
             UIManager.showLoading();
+
+            // If specific location details provided (from Explore button)
+            if (params?.location) {
+                this.logger.info('Rendering location details', { locationName: params.location.name });
+                
+                // Render city/country and interesting info
+                const location = params.location;
+                let detailsHtml = `
+                    <div class="explore-location-details" style="margin-bottom: var(--spacing-xl); padding: var(--spacing-lg); background: var(--accent-cream); border-radius: var(--radius-lg); box-shadow: var(--shadow-light);">
+                        <h2 style="margin-bottom: var(--spacing-sm);">${location.name || 'Unknown Location'}</h2>
+                        <h4 style="margin-bottom: var(--spacing-sm); color: var(--primary-color);">${location.country || ''}</h4>
+                        <p style="margin-bottom: var(--spacing-md);">${location.description || 'No description available'}</p>
+                        ${location.facts && location.facts.length > 0 ? `
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Interesting Facts:</strong>
+                            <ul>
+                                ${location.facts.map(fact => `<li>${fact}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        ${location.transportation ? `
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Transportation:</strong> ${Object.values(location.transportation).join(', ')}
+                        </div>
+                        ` : ''}
+                        ${location.safety ? `
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Safety:</strong> ${location.safety.overall || 'Information not available'}
+                            ${location.safety.tips && location.safety.tips.length > 0 ? `
+                            <ul>
+                                ${location.safety.tips.map(tip => `<li>${tip}</li>`).join('')}
+                            </ul>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                exploreResults.innerHTML = detailsHtml;
+                this.logger.info('Location details rendered successfully');
+                return;
+            }
 
             // If specific destination requested
             if (params?.destination) {
-                const destinations = await window.TravelApp.modules.api.searchDestinations(params.destination);
+                this.logger.info('Searching for destination', { destination: params.destination });
+                const destinations = await window.TravelApp.services.location.searchLocations({ query: params.destination });
                 this.renderExploreResults(destinations);
             } else {
                 // Load default explore data
-                const destinations = await window.TravelApp.modules.api.getPopularDestinations();
+                this.logger.info('Loading default popular destinations');
+                const destinations = await window.TravelApp.services.location.searchLocations({ query: 'popular destinations' });
                 this.renderExploreResults(destinations);
             }
 
         } catch (error) {
             this.logger.error('Failed to load explore data', error);
             UIManager.showToast('Failed to load destinations', 'error');
+            
+            // Show error state in the container
+            const exploreResults = document.getElementById('explore-results');
+            if (exploreResults) {
+                exploreResults.innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Failed to load content</h3>
+                        <p>Please try again or go back to search for destinations.</p>
+                    </div>
+                `;
+            }
         } finally {
             UIManager.hideLoading();
         }
@@ -449,23 +510,73 @@ export class NavigationManager {
         }
 
         container.innerHTML = destinations.map(destination => `
-            <div class="destination-card">
-                <img src="${destination.image}" alt="${destination.name}" loading="lazy">
+            <div class="destination-card" data-destination="${destination.id}">
+                <div class="destination-image-container">
+                    <img src="${destination.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'}" 
+                         alt="${destination.name}" 
+                         loading="lazy" 
+                         onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                </div>
                 <div class="destination-card-content">
                     <h3>${destination.name}</h3>
-                    <p>${destination.description}</p>
-                    <div class="destination-card-footer">
-                        <div class="destination-rating">
-                            <i class="fas fa-star"></i>
-                            <span>${destination.rating}</span>
-                        </div>
-                        <button class="btn btn-primary btn-sm">
+                    <p>${destination.description || 'Discover this amazing destination'}</p>
+                    <div class="destination-meta">
+                        <span class="rating">★ ${destination.rating || '4.5'}</span>
+                        <span class="best-time">${destination.bestTimeToVisit || 'Year-round'}</span>
+                    </div>
+                    <div class="destination-highlights">
+                        ${destination.highlights ? destination.highlights.slice(0, 3).map(highlight => 
+                            `<span class="highlight-tag">${highlight}</span>`
+                        ).join('') : ''}
+                    </div>
+                    <div class="destination-actions">
+                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-eye"></i>
+                            Explore
+                        </button>
+                        <button class="btn btn-primary add-to-trip-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-plus"></i>
                             Add to Trip
                         </button>
                     </div>
                 </div>
             </div>
         `).join('');
+
+        // Add event listeners for the buttons
+        this.addExploreResultsEventListeners(container, destinations);
+    }
+
+    /**
+     * Add event listeners to explore results
+     */
+    addExploreResultsEventListeners(container, destinations) {
+        // Store destinations for later reference
+        if (window.TravelApp) {
+            window.TravelApp._lastSearchResults = destinations;
+        }
+
+        // Add event listeners for explore buttons
+        container.querySelectorAll('.explore-destination-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const destinationId = e.target.closest('.explore-destination-btn').dataset.destinationId;
+                if (window.TravelApp && window.TravelApp.exploreDestination) {
+                    window.TravelApp.exploreDestination(destinationId);
+                }
+            });
+        });
+
+        // Add event listeners for add to trip buttons
+        container.querySelectorAll('.add-to-trip-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const destinationId = e.target.closest('.add-to-trip-btn').dataset.destinationId;
+                if (window.TravelApp && window.TravelApp.addToItinerary) {
+                    window.TravelApp.addToItinerary('location', destinationId);
+                }
+            });
+        });
     }
 
     /**
