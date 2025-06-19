@@ -510,23 +510,73 @@ export class NavigationManager {
         }
 
         container.innerHTML = destinations.map(destination => `
-            <div class="destination-card">
-                <img src="${destination.image}" alt="${destination.name}" loading="lazy">
+            <div class="destination-card" data-destination="${destination.id}">
+                <div class="destination-image-container">
+                    <img src="${destination.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'}" 
+                         alt="${destination.name}" 
+                         loading="lazy" 
+                         onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
+                </div>
                 <div class="destination-card-content">
                     <h3>${destination.name}</h3>
-                    <p>${destination.description}</p>
-                    <div class="destination-card-footer">
-                        <div class="destination-rating">
-                            <i class="fas fa-star"></i>
-                            <span>${destination.rating}</span>
-                        </div>
-                        <button class="btn btn-primary btn-sm">
+                    <p>${destination.description || 'Discover this amazing destination'}</p>
+                    <div class="destination-meta">
+                        <span class="rating">★ ${destination.rating || '4.5'}</span>
+                        <span class="best-time">${destination.bestTimeToVisit || 'Year-round'}</span>
+                    </div>
+                    <div class="destination-highlights">
+                        ${destination.highlights ? destination.highlights.slice(0, 3).map(highlight => 
+                            `<span class="highlight-tag">${highlight}</span>`
+                        ).join('') : ''}
+                    </div>
+                    <div class="destination-actions">
+                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-eye"></i>
+                            Explore
+                        </button>
+                        <button class="btn btn-primary add-to-trip-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-plus"></i>
                             Add to Trip
                         </button>
                     </div>
                 </div>
             </div>
         `).join('');
+
+        // Add event listeners for the buttons
+        this.addExploreResultsEventListeners(container, destinations);
+    }
+
+    /**
+     * Add event listeners to explore results
+     */
+    addExploreResultsEventListeners(container, destinations) {
+        // Store destinations for later reference
+        if (window.TravelApp) {
+            window.TravelApp._lastSearchResults = destinations;
+        }
+
+        // Add event listeners for explore buttons
+        container.querySelectorAll('.explore-destination-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const destinationId = e.target.closest('.explore-destination-btn').dataset.destinationId;
+                if (window.TravelApp && window.TravelApp.exploreDestination) {
+                    window.TravelApp.exploreDestination(destinationId);
+                }
+            });
+        });
+
+        // Add event listeners for add to trip buttons
+        container.querySelectorAll('.add-to-trip-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const destinationId = e.target.closest('.add-to-trip-btn').dataset.destinationId;
+                if (window.TravelApp && window.TravelApp.addToItinerary) {
+                    window.TravelApp.addToItinerary('location', destinationId);
+                }
+            });
+        });
     }
 
     /**

@@ -995,7 +995,7 @@ class TravelPlannerApp {
             return `
             <div class="destination-card" data-destination="${destination.id}">
                     <div class="destination-image-container">
-                        <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop'">
+                        <img src="${destination.image}" alt="${destination.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop&crop=entropy&auto=format'">
                         ${weatherHtml}
                     </div>
                 <div class="destination-card-content">
@@ -1074,7 +1074,7 @@ class TravelPlannerApp {
                 id: 'paris',
                 name: 'Paris, France',
                 description: 'The City of Light with iconic landmarks and rich culture',
-                image: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800&h=600&fit=crop',
+                image: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: 4.8,
                 bestTimeToVisit: 'Apr-Oct',
                 highlights: ['Eiffel Tower', 'Louvre Museum', 'Notre-Dame', 'Champs-Élysées']
@@ -1083,7 +1083,7 @@ class TravelPlannerApp {
                 id: 'tokyo',
                 name: 'Tokyo, Japan',
                 description: 'Modern metropolis blending tradition with cutting-edge technology',
-                image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop',
+                image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: 4.7,
                 bestTimeToVisit: 'Mar-May, Sep-Nov',
                 highlights: ['Shibuya Crossing', 'Tokyo Tower', 'Senso-ji Temple', 'Harajuku']
@@ -1092,7 +1092,7 @@ class TravelPlannerApp {
                 id: 'newyork',
                 name: 'New York City, USA',
                 description: 'The Big Apple - bustling city that never sleeps',
-                image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop',
+                image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: 4.6,
                 bestTimeToVisit: 'Apr-Jun, Sep-Nov',
                 highlights: ['Times Square', 'Central Park', 'Statue of Liberty', 'Broadway']
@@ -1101,7 +1101,7 @@ class TravelPlannerApp {
                 id: 'london',
                 name: 'London, England',
                 description: 'Historic capital with royal palaces and modern attractions',
-                image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&h=600&fit=crop',
+                image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&h=600&fit=crop&crop=entropy&auto=format',
                 rating: 4.5,
                 bestTimeToVisit: 'May-Sep',
                 highlights: ['Big Ben', 'Tower Bridge', 'British Museum', 'Buckingham Palace']

@@ -580,6 +580,19 @@ p {
     margin-top: auto;
 }
 
+.destination-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+    padding-top: var(--spacing-sm);
+}
+
+.destination-actions .btn {
+    flex: 1;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+}
+
 .destination-rating {
     display: flex;
     align-items: center;
