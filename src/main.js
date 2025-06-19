@@ -292,6 +292,9 @@ class TravelPlannerApp {
                 this.logger.info('Fetching weather data for destinations...');
                 const destinationsWithWeather = await this.services.location.getWeatherForDestinations(destinations);
                 
+                // Store popular destinations for "Add to Trip" functionality
+                this._lastSearchResults = destinationsWithWeather;
+                
                 this.renderPopularDestinations(destinationsWithWeather);
                 this.logger.info(`Loaded ${destinationsWithWeather.length} popular destinations with weather data`);
             } else {
@@ -299,6 +302,10 @@ class TravelPlannerApp {
                 this.logger.warn('No destinations returned from service, using fallback');
                 const fallbackDestinations = this.getFallbackDestinations();
                 const fallbackWithWeather = await this.services.location.getWeatherForDestinations(fallbackDestinations);
+                
+                // Store fallback destinations for "Add to Trip" functionality
+                this._lastSearchResults = fallbackWithWeather;
+                
                 this.renderPopularDestinations(fallbackWithWeather);
             }
         } catch (error) {
@@ -307,9 +314,17 @@ class TravelPlannerApp {
             const fallbackDestinations = this.getFallbackDestinations();
             try {
                 const fallbackWithWeather = await this.services.location.getWeatherForDestinations(fallbackDestinations);
+                
+                // Store fallback destinations for "Add to Trip" functionality
+                this._lastSearchResults = fallbackWithWeather;
+                
                 this.renderPopularDestinations(fallbackWithWeather);
             } catch (weatherError) {
                 this.logger.warn('Failed to load weather for fallback destinations', weatherError);
+                
+                // Store fallback destinations without weather for "Add to Trip" functionality
+                this._lastSearchResults = fallbackDestinations;
+                
                 this.renderPopularDestinations(fallbackDestinations);
             }
         }
@@ -457,15 +472,23 @@ class TravelPlannerApp {
         // Store last search results for use in exploreLocation
         this._lastSearchResults = results;
 
-        // Add event listeners for explore buttons in search results
+        // Add event listeners for location results
         if (type === 'locations') {
-            container.querySelectorAll('[onclick*="exploreLocation"]').forEach(btn => {
-                // Remove onclick attribute and add proper event listener
-                const locationId = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-                btn.removeAttribute('onclick');
+            // Handle explore buttons
+            container.querySelectorAll('.explore-location-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    const locationId = e.target.closest('.explore-location-btn').dataset.locationId;
                     this.exploreLocation(locationId);
+                });
+            });
+
+            // Handle add to trip buttons
+            container.querySelectorAll('.add-to-trip-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const locationId = e.target.closest('.add-to-trip-btn').dataset.locationId;
+                    this.addToItinerary('location', locationId);
                 });
             });
         }
@@ -574,9 +597,16 @@ class TravelPlannerApp {
                             <span class="stars">★</span>
                             <span>${location.rating}</span>
                         </div>
-                        <button class="btn btn-primary" onclick="TravelApp.exploreLocation('${location.id}')">
-                            Explore
-                        </button>
+                        <div class="location-actions">
+                            <button class="btn btn-outline explore-location-btn" data-location-id="${location.id}">
+                                <i class="fas fa-eye"></i>
+                                Explore
+                            </button>
+                            <button class="btn btn-primary add-to-trip-btn" data-location-id="${location.id}">
+                                <i class="fas fa-plus"></i>
+                                Add to Trip
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -623,9 +653,16 @@ class TravelPlannerApp {
         try {
             const currentItinerary = this.modules.itinerary.getCurrentItinerary();
             if (!currentItinerary) {
-                UIManager.showToast('Please create an itinerary first', 'warning');
-                return;
+                // If no current itinerary, create one automatically
+                const newTrip = await this.createNewTrip();
+                if (!newTrip) {
+                    UIManager.showToast('Please create a trip first', 'warning');
+                    return;
+                }
             }
+            
+            this.logger.info('Adding item to itinerary', { type, itemId });
+            UIManager.showLoading();
             
             // Get item details based on type
             let itemData;
@@ -636,30 +673,58 @@ class TravelPlannerApp {
                 case 'hotel':
                     itemData = await this.services.hotel.getHotelDetails(itemId);
                     break;
+                case 'location':
+                    // Try to get location from last search results first
+                    const lastResults = this._lastSearchResults || [];
+                    let locationFromSearch = lastResults.find(loc => loc.id === itemId);
+                    
+                    if (locationFromSearch) {
+                        itemData = locationFromSearch;
+                        this.logger.debug('Using location from search results', { itemId });
+                    } else {
+                        // Fallback to API call
+                        this.logger.debug('Fetching location details from API', { itemId });
+                        itemData = await this.services.location.getLocationDetails(itemId);
+                    }
+                    break;
                 default:
                     throw new Error(`Unsupported item type: ${type}`);
             }
+            
+            if (!itemData) {
+                throw new Error(`Could not find ${type} with ID: ${itemId}`);
+            }
+            
+            // Get current itinerary again in case it was just created
+            const itinerary = this.modules.itinerary.getCurrentItinerary();
             
             // Add to first available day and time slot
             const dayIndex = 0;
             const timeSlot = 'morning';
             
             await this.modules.itinerary.addItemToDay(
-                currentItinerary.id,
+                itinerary.id,
                 dayIndex,
                 timeSlot,
                 {
                     type,
                     title: itemData.name || itemData.title,
-                    description: itemData.description,
-                    data: itemData
+                    description: itemData.description || `Visit ${itemData.name}`,
+                    data: itemData,
+                    category: type === 'location' ? 'attraction' : type,
+                    cost: itemData.cost || 0
                 }
             );
             
-            UIManager.showToast(`${type} added to itinerary!`, 'success');
+            // Update trips display to show the new item
+            this.updateTripsDisplay();
+            
+            UIManager.showToast(`${itemData.name || itemData.title} added to your trip!`, 'success');
             
         } catch (error) {
-            this.handleError('Failed to add item to itinerary', error);
+            this.handleError('Failed to add item to trip', error);
+        } finally {
+            UIManager.hideLoading();
         }
     }
 
@@ -767,10 +832,16 @@ class TravelPlannerApp {
                                 `<span class="highlight-tag">${highlight}</span>`
                             ).join('') : ''}
                         </div>
-                    <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
-                            <i class="fas fa-eye"></i>
-                        Explore
-                    </button>
+                    <div class="destination-actions">
+                        <button class="btn btn-outline explore-destination-btn" data-destination-id="${destination.id}">
+                                <i class="fas fa-eye"></i>
+                            Explore
+                        </button>
+                        <button class="btn btn-primary add-to-trip-btn" data-destination-id="${destination.id}">
+                            <i class="fas fa-plus"></i>
+                            Add to Trip
+                        </button>
+                    </div>
                 </div>
             </div>
             `;
@@ -779,8 +850,16 @@ class TravelPlannerApp {
         // Add event listeners for explore buttons
         container.querySelectorAll('.explore-destination-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const destinationId = e.target.dataset.destinationId;
+                const destinationId = e.target.closest('.explore-destination-btn').dataset.destinationId;
                 this.exploreDestination(destinationId);
+            });
+        });
+
+        // Add event listeners for add to trip buttons
+        container.querySelectorAll('.add-to-trip-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const destinationId = e.target.closest('.add-to-trip-btn').dataset.destinationId;
+                this.addToItinerary('location', destinationId);
             });
         });
     }
@@ -1155,8 +1234,27 @@ class TravelPlannerApp {
         try {
             // Check if user is authenticated
             if (!this.modules.auth.isAuthenticated()) {
-                this.modules.navigation.showAuthModal('login');
-                return;
+                // For automatic trip creation, create a guest trip
+                this.logger.info('Creating guest trip for unauthenticated user');
+                
+                const tripData = {
+                    name: `My Trip - ${new Date().toLocaleDateString()}`,
+                    title: `My Trip - ${new Date().toLocaleDateString()}`,
+                    destination: 'Multiple Destinations',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    duration: 7,
+                    template: 'leisure'
+                };
+                
+                const newTrip = await this.modules.itinerary.createItinerary(tripData);
+                
+                // Update UI
+                this.updateTripsDisplay();
+                this.selectTrip(newTrip.id);
+                
+                UIManager.showToast('New trip created!', 'success');
+                return newTrip;
             }
             
             // Create a simple trip for demo
@@ -1177,9 +1275,11 @@ class TravelPlannerApp {
             this.selectTrip(newTrip.id);
             
             UIManager.showToast('New trip created!', 'success');
+            return newTrip;
             
         } catch (error) {
             this.handleError('Failed to create trip', error);
+            return null;
         }
     }
 
