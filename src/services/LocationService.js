@@ -405,17 +405,34 @@ export class LocationService {
     /**
      * Get location details including photos, reviews, and additional info
      * @param {string} locationId - Location identifier
+     * @param {Object} basicInfo - Basic location information
      * @returns {Promise<Object>} Detailed location information
      */
-    async getLocationDetails(locationId) {
+    async getLocationDetails(locationId, basicInfo = null) {
         try {
             this.logger.info('Fetching location details', { locationId });
-            
             const mockDetails = await this.getMockLocationDetails(locationId);
-            
+            // Merge basic info if provided
+            let details = { ...mockDetails };
+            if (basicInfo) {
+                details = {
+                    ...details,
+                    name: basicInfo.name || details.name || 'Unknown',
+                    country: basicInfo.country || details.country || 'Unknown',
+                    description: basicInfo.description || details.description || 'No description available',
+                    image: basicInfo.image || details.image,
+                    rating: basicInfo.rating || details.rating,
+                    highlights: basicInfo.highlights || details.highlights,
+                    bestTimeToVisit: basicInfo.bestTimeToVisit || details.bestTimeToVisit
+                };
+            } else {
+                // Fallbacks if mockDetails is missing fields
+                details.name = details.name || 'Unknown';
+                details.country = details.country || 'Unknown';
+                details.description = details.description || 'No description available';
+            }
             this.logger.info('Location details retrieved', { locationId });
-            return mockDetails;
-            
+            return details;
         } catch (error) {
             this.logger.error('Failed to get location details', { error: error.message, locationId });
             throw new Error(`Failed to get location details: ${error.message}`);

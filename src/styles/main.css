@@ -659,7 +659,7 @@ p {
 
 /* ===== SEARCH RESULTS ===== */
 .search-results {
-    margin-top: var(--spacing-xl);
+    margin-top: var(--spacing-xxl);
 }
 
 .search-results-header {
@@ -1611,4 +1611,12 @@ button:focus {
         --shadow-medium: 0 4px 20px rgba(0, 0, 0, 0.4);
         --shadow-heavy: 0 8px 30px rgba(0, 0, 0, 0.5);
     }
+}
+
+.explore-location-details {
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    background: var(--accent-cream);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-light);
 } 

@@ -453,6 +453,9 @@ class TravelPlannerApp {
                 ${results.map(result => this.renderSearchResult(result, type)).join('')}
             </div>
         `;
+
+        // Store last search results for use in exploreLocation
+        this._lastSearchResults = results;
     }
 
     /**
@@ -886,7 +889,7 @@ class TravelPlannerApp {
         // Make methods available globally for HTML onclick handlers
         window.TravelApp.addToItinerary = this.addToItinerary.bind(this);
         window.TravelApp.exploreDestination = this.exploreDestination.bind(this);
-        window.TravelApp.exploreLocation = this.exploreDestination.bind(this);
+        window.TravelApp.exploreLocation = this.exploreLocation.bind(this);
         
         // Search functionality
         window.TravelApp.performSearch = this.performSearch.bind(this);
@@ -1072,6 +1075,7 @@ class TravelPlannerApp {
             // Create a simple trip for demo
             const tripData = {
                 name: `Trip to ${new Date().toLocaleDateString()}`,
+                title: `Trip to ${new Date().toLocaleDateString()}`,
                 destination: 'New Destination',
                 startDate: new Date().toISOString().split('T')[0],
                 endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -1119,7 +1123,7 @@ class TravelPlannerApp {
         
         builder.innerHTML = `
             <div class="itinerary-header">
-                <h2>${trip.name}</h2>
+                <h2>${trip.title || trip.name}</h2>
                 <p>${trip.destination} • ${trip.duration} days</p>
                 <div class="itinerary-actions">
                     <button class="btn btn-outline" onclick="TravelApp.editTrip('${trip.id}')">
@@ -1235,7 +1239,7 @@ class TravelPlannerApp {
         tripsList.innerHTML = trips.map(trip => `
             <div class="trip-item ${currentTrip?.id === trip.id ? 'active' : ''}" 
                  onclick="TravelApp.selectTrip('${trip.id}')">
-                <h4>${trip.name}</h4>
+                <h4>${trip.title || trip.name}</h4>
                 <p>${trip.destination}</p>
                 <span class="trip-duration">${trip.duration} days</span>
             </div>
@@ -1367,6 +1371,31 @@ class TravelPlannerApp {
                 this.services.map.map.removeLayer(marker);
             }
         });
+    }
+
+    /**
+     * Explore a specific location
+     */
+    async exploreLocation(locationId) {
+        try {
+            // Try to get the basic info from the last search results if available
+            let basicInfo = null;
+            const lastResults = this._lastSearchResults || [];
+            basicInfo = lastResults.find(loc => loc.id === locationId) || null;
+            // Fetch full details for the location, merging basic info
+            const locationDetails = await this.services.location.getLocationDetails(locationId, basicInfo);
+            // Navigate to Explore page with only this location's details
+            this.modules.navigation.navigateTo('explore', { location: locationDetails });
+            // Ensure only the explore-results section is visible
+            setTimeout(() => {
+                const exploreResults = document.getElementById('explore-results');
+                const searchResults = document.getElementById('search-results');
+                if (exploreResults) exploreResults.style.display = 'block';
+                if (searchResults) searchResults.style.display = 'none';
+            }, 100);
+        } catch (error) {
+            this.handleError('Failed to load location details', error);
+        }
     }
 }
 

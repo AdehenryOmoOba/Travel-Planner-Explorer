@@ -412,6 +412,37 @@ export class NavigationManager {
 
             UIManager.showLoading();
 
+            // If specific location details provided (from Explore button)
+            if (params?.location) {
+                // Render city/country and interesting info
+                const location = params.location;
+                let detailsHtml = `
+                    <div class="explore-location-details" style="margin-bottom: var(--spacing-xl); padding: var(--spacing-lg); background: var(--accent-cream); border-radius: var(--radius-lg); box-shadow: var(--shadow-light);">
+                        <h2 style="margin-bottom: var(--spacing-sm);">${location.name || ''}</h2>
+                        <h4 style="margin-bottom: var(--spacing-sm); color: var(--primary-color);">${location.country || ''}</h4>
+                        <p style="margin-bottom: var(--spacing-md);">${location.description || ''}</p>
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Interesting Facts:</strong>
+                            <ul>
+                                ${(location.facts || []).map(fact => `<li>${fact}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Transportation:</strong> ${location.transportation ? Object.values(location.transportation).join(', ') : ''}
+                        </div>
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <strong>Safety:</strong> ${location.safety ? location.safety.overall : ''}
+                            <ul>
+                                ${(location.safety?.tips || []).map(tip => `<li>${tip}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                exploreResults.innerHTML = detailsHtml;
+                // Optionally, you can also show related destinations or POIs here
+                return;
+            }
+
             // If specific destination requested
             if (params?.destination) {
                 const destinations = await window.TravelApp.modules.api.searchDestinations(params.destination);
