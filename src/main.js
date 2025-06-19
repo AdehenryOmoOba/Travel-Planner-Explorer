@@ -1184,6 +1184,7 @@ class TravelPlannerApp {
         window.TravelApp.createNewTrip = this.createNewTrip.bind(this);
         window.TravelApp.selectTrip = this.selectTrip.bind(this);
         window.TravelApp.deleteTrip = this.deleteTrip.bind(this);
+        window.TravelApp.closeTripCreationModal = this.closeTripCreationModal.bind(this);
         
         // Itinerary item management
         window.TravelApp.showAddItemModal = this.showAddItemModal.bind(this);
@@ -1380,58 +1381,239 @@ class TravelPlannerApp {
     }
 
     /**
-     * Create new trip
+     * Create new trip with modal dialog
      */
     async createNewTrip() {
         try {
-            // Check if user is authenticated
-            if (!this.modules.auth.isAuthenticated()) {
-                // For automatic trip creation, create a guest trip
-                this.logger.info('Creating guest trip for unauthenticated user');
-                
-                const tripData = {
-                    name: 'My New Trip',
-                    title: 'My New Trip',
-                    destination: 'Multiple Destinations',
-                    startDate: new Date().toISOString().split('T')[0],
-                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    duration: 7,
-                    template: 'leisure'
-                };
-                
-                const newTrip = await this.modules.itinerary.createItinerary(tripData);
-                
-                // Update UI
-                this.updateTripsDisplay();
-                this.selectTrip(newTrip.id);
-                
-                UIManager.showToast('New trip created!', 'success');
-                return newTrip;
+            this.logger.info('Showing new trip creation modal');
+            
+            // Show the trip creation modal
+            this.showTripCreationModal();
+            
+        } catch (error) {
+            this.handleError('Failed to show trip creation modal', error);
+            return null;
+        }
+    }
+
+    /**
+     * Show trip creation modal
+     */
+    showTripCreationModal() {
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal trip-creation-modal" id="trip-creation-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Create New Trip</h3>
+                        <button class="modal-close" onclick="TravelApp.closeTripCreationModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <form class="trip-creation-form" id="trip-creation-form">
+                            <div class="form-group">
+                                <label for="trip-destination">Destination City *</label>
+                                <input 
+                                    type="text" 
+                                    id="trip-destination" 
+                                    name="destination" 
+                                    placeholder="e.g., Paris, Tokyo, New York"
+                                    required
+                                >
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="trip-name">Trip Name</label>
+                                <input 
+                                    type="text" 
+                                    id="trip-name" 
+                                    name="name" 
+                                    placeholder="Will be auto-generated if left empty"
+                                >
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="trip-start-date">Start Date *</label>
+                                    <input 
+                                        type="date" 
+                                        id="trip-start-date" 
+                                        name="startDate" 
+                                        required
+                                    >
+                                </div>
+                                <div class="form-group">
+                                    <label for="trip-end-date">End Date *</label>
+                                    <input 
+                                        type="date" 
+                                        id="trip-end-date" 
+                                        name="endDate" 
+                                        required
+                                    >
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="trip-type">Trip Type</label>
+                                    <select id="trip-type" name="type">
+                                        <option value="leisure">Leisure</option>
+                                        <option value="business">Business</option>
+                                        <option value="adventure">Adventure</option>
+                                        <option value="romantic">Romantic</option>
+                                        <option value="family">Family</option>
+                                        <option value="solo">Solo Travel</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="trip-budget">Budget (Optional)</label>
+                                    <input 
+                                        type="number" 
+                                        id="trip-budget" 
+                                        name="budget" 
+                                        placeholder="Total budget"
+                                        min="0"
+                                    >
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" onclick="TravelApp.closeTripCreationModal()">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i>
+                                    Create Trip
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = document.getElementById('trip-creation-modal');
+        setTimeout(() => modal.classList.add('active'), 10);
+        
+        // Set default dates
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        
+        document.getElementById('trip-start-date').value = tomorrow.toISOString().split('T')[0];
+        document.getElementById('trip-end-date').value = nextWeek.toISOString().split('T')[0];
+        
+        // Add form submit handler
+        document.getElementById('trip-creation-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleTripCreationSubmit(e);
+        });
+        
+        // Focus on destination input
+        setTimeout(() => {
+            document.getElementById('trip-destination').focus();
+        }, 100);
+    }
+
+    /**
+     * Handle trip creation form submission
+     */
+    async handleTripCreationSubmit(event) {
+        try {
+            const formData = new FormData(event.target);
+            const destination = formData.get('destination')?.trim();
+            const startDate = formData.get('startDate');
+            const endDate = formData.get('endDate');
+            
+            // Validate required fields
+            if (!destination) {
+                UIManager.showToast('Please enter a destination', 'error');
+                return;
             }
             
-            // Create a simple trip for demo
+            if (!startDate || !endDate) {
+                UIManager.showToast('Please select start and end dates', 'error');
+                return;
+            }
+            
+            // Validate date range
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            if (end <= start) {
+                UIManager.showToast('End date must be after start date', 'error');
+                return;
+            }
+            
+            // Calculate duration
+            const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            
+            // Create trip name if not provided
+            let tripName = formData.get('name')?.trim();
+            if (!tripName) {
+                tripName = `Trip to ${destination}`;
+            }
+            
+            // Get budget if provided
+            const budgetValue = formData.get('budget');
+            const budget = budgetValue ? {
+                total: parseFloat(budgetValue),
+                spent: 0,
+                currency: 'USD'
+            } : null;
+            
+            // Create trip data
             const tripData = {
-                name: 'My New Trip',
-                title: 'My New Trip',
-                destination: 'New Destination',
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                duration: 7,
-                template: 'leisure'
+                name: tripName,
+                title: tripName,
+                destination: destination,
+                startDate: startDate,
+                endDate: endDate,
+                duration: duration,
+                type: formData.get('type') || 'leisure',
+                budget: budget
             };
             
+            UIManager.showLoading('Creating your trip...');
+            
+            // Create the trip
             const newTrip = await this.modules.itinerary.createItinerary(tripData);
+            
+            // Close modal
+            this.closeTripCreationModal();
             
             // Update UI
             this.updateTripsDisplay();
             this.selectTrip(newTrip.id);
             
-            UIManager.showToast('New trip created!', 'success');
+            UIManager.hideLoading();
+            UIManager.showToast(`Trip to ${destination} created successfully!`, 'success');
+            
             return newTrip;
             
         } catch (error) {
+            UIManager.hideLoading();
             this.handleError('Failed to create trip', error);
+            UIManager.showToast('Failed to create trip. Please try again.', 'error');
             return null;
+        }
+    }
+
+    /**
+     * Close trip creation modal
+     */
+    closeTripCreationModal() {
+        const modal = document.getElementById('trip-creation-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
         }
     }
 
