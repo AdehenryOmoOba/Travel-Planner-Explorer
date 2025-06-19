@@ -456,6 +456,19 @@ class TravelPlannerApp {
 
         // Store last search results for use in exploreLocation
         this._lastSearchResults = results;
+
+        // Add event listeners for explore buttons in search results
+        if (type === 'locations') {
+            container.querySelectorAll('[onclick*="exploreLocation"]').forEach(btn => {
+                // Remove onclick attribute and add proper event listener
+                const locationId = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+                btn.removeAttribute('onclick');
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.exploreLocation(locationId);
+                });
+            });
+        }
     }
 
     /**
@@ -651,7 +664,7 @@ class TravelPlannerApp {
     }
 
     /**
-     * Explore a specific location
+     * Explore a specific destination (from destination cards)
      */
     async exploreDestination(locationId) {
         try {
@@ -665,6 +678,55 @@ class TravelPlannerApp {
             
         } catch (error) {
             this.handleError('Failed to explore destination', error);
+        }
+    }
+
+    /**
+     * Explore a specific location (from search results)
+     */
+    async exploreLocation(locationId) {
+        try {
+            this.logger.info('Exploring location', { locationId });
+            
+            // Show loading state
+            UIManager.showLoading();
+            
+            // Try to get the basic info from the last search results if available
+            let basicInfo = null;
+            const lastResults = this._lastSearchResults || [];
+            basicInfo = lastResults.find(loc => loc.id === locationId) || null;
+            
+            this.logger.debug('Basic info found', { basicInfo: !!basicInfo, locationId });
+            
+            // Fetch full details for the location, merging basic info
+            const locationDetails = await this.services.location.getLocationDetails(locationId, basicInfo);
+            
+            this.logger.info('Location details retrieved', { locationId, hasDetails: !!locationDetails });
+            
+            // Navigate to Explore page with only this location's details
+            this.modules.navigation.navigateTo('explore', { location: locationDetails });
+            
+            // Ensure only the explore-results section is visible
+            setTimeout(() => {
+                const exploreResults = document.getElementById('explore-results');
+                const searchResults = document.getElementById('search-results');
+                
+                if (exploreResults) {
+                    exploreResults.style.display = 'block';
+                    this.logger.debug('Explore results container shown');
+                }
+                if (searchResults) {
+                    searchResults.style.display = 'none';
+                    this.logger.debug('Search results container hidden');
+                }
+                
+                UIManager.hideLoading();
+            }, 100);
+            
+        } catch (error) {
+            this.logger.error('Failed to load location details', { error: error.message, locationId });
+            UIManager.hideLoading();
+            this.handleError('Failed to load location details', error);
         }
     }
 
@@ -972,6 +1034,22 @@ class TravelPlannerApp {
                     </div>
                 </div>
             `;
+            
+            // Add event listeners for explore buttons in search results
+            resultsSection.querySelectorAll('.explore-destination-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const destinationId = e.target.closest('.explore-destination-btn').dataset.destinationId;
+                    this.exploreDestination(destinationId);
+                });
+            });
+
+            // Add event listeners for add to trip buttons
+            resultsSection.querySelectorAll('.add-to-trip-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const destinationId = e.target.closest('.add-to-trip-btn').dataset.destinationId;
+                    this.addToItinerary('location', destinationId);
+                });
+            });
             
             // Scroll to results
             resultsSection.scrollIntoView({ behavior: 'smooth' });
@@ -1371,31 +1449,6 @@ class TravelPlannerApp {
                 this.services.map.map.removeLayer(marker);
             }
         });
-    }
-
-    /**
-     * Explore a specific location
-     */
-    async exploreLocation(locationId) {
-        try {
-            // Try to get the basic info from the last search results if available
-            let basicInfo = null;
-            const lastResults = this._lastSearchResults || [];
-            basicInfo = lastResults.find(loc => loc.id === locationId) || null;
-            // Fetch full details for the location, merging basic info
-            const locationDetails = await this.services.location.getLocationDetails(locationId, basicInfo);
-            // Navigate to Explore page with only this location's details
-            this.modules.navigation.navigateTo('explore', { location: locationDetails });
-            // Ensure only the explore-results section is visible
-            setTimeout(() => {
-                const exploreResults = document.getElementById('explore-results');
-                const searchResults = document.getElementById('search-results');
-                if (exploreResults) exploreResults.style.display = 'block';
-                if (searchResults) searchResults.style.display = 'none';
-            }, 100);
-        } catch (error) {
-            this.handleError('Failed to load location details', error);
-        }
     }
 }
 
