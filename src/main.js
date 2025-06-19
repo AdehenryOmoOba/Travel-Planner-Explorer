@@ -1511,6 +1511,29 @@ class TravelPlannerApp {
                                 </div>
                             </div>
                             
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="trip-travelers">Number of Travelers</label>
+                                    <input 
+                                        type="number" 
+                                        id="trip-travelers" 
+                                        name="travelers" 
+                                        placeholder="1"
+                                        min="1"
+                                        value="1"
+                                    >
+                                </div>
+                                <div class="form-group">
+                                    <label for="trip-notes">Notes (Optional)</label>
+                                    <textarea 
+                                        id="trip-notes" 
+                                        name="notes" 
+                                        placeholder="Any additional notes about your trip"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                            </div>
+                            
                             <div class="form-actions">
                                 <button type="button" class="btn btn-outline" onclick="TravelApp.closeTripCreationModal()">
                                     Cancel
@@ -1566,12 +1589,25 @@ class TravelPlannerApp {
             
             // Get form data
             const formData = new FormData(event.target);
+            const destination = formData.get('destination');
+            const startDate = formData.get('startDate');
+            const endDate = formData.get('endDate');
+            
+            // Auto-generate title if not provided
+            let title = formData.get('name');
+            if (!title || title.trim() === '') {
+                const startDateObj = new Date(startDate);
+                const endDateObj = new Date(endDate);
+                const duration = Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1;
+                title = `${destination} Trip (${duration} days)`;
+            }
+            
             const tripData = {
-                title: formData.get('tripName'),
-                destination: formData.get('destination'),
-                startDate: formData.get('startDate'),
-                endDate: formData.get('endDate'),
-                type: formData.get('tripType'),
+                title: title,
+                destination: destination,
+                startDate: startDate,
+                endDate: endDate,
+                type: formData.get('type'),
                 budget: parseFloat(formData.get('budget')) || 0,
                 travelers: parseInt(formData.get('travelers')) || 1,
                 notes: formData.get('notes') || ''

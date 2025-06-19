@@ -528,7 +528,7 @@ export class ItineraryManager {
      */
     validateItineraryData(data) {
         const required = ['title', 'destination', 'startDate', 'endDate'];
-        const missing = required.filter(field => !data[field]);
+        const missing = required.filter(field => !data[field] || data[field].toString().trim() === '');
         
         if (missing.length > 0) {
             throw new Error(`Missing required fields: ${missing.join(', ')}`);
