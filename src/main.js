@@ -956,6 +956,7 @@ class TravelPlannerApp {
         // Search functionality
         window.TravelApp.performSearch = this.performSearch.bind(this);
         window.TravelApp.handleHeroSearch = this.handleHeroSearch.bind(this);
+        window.TravelApp.viewAllResults = this.viewAllResults.bind(this);
         
         // Itinerary management
         window.TravelApp.createNewTrip = this.createNewTrip.bind(this);
@@ -1004,6 +1005,9 @@ class TravelPlannerApp {
      * Display hero search results on home page
      */
     displayHeroSearchResults(results, query) {
+        // Store search results for later reference
+        this._lastSearchResults = results;
+        
         // Create or update search results section on home page
         let resultsSection = document.getElementById('hero-search-results');
         
@@ -1036,10 +1040,12 @@ class TravelPlannerApp {
             `;
             
             // Add event listeners for explore buttons in search results
+            // Use exploreLocation for search results instead of exploreDestination
             resultsSection.querySelectorAll('.explore-destination-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const destinationId = e.target.closest('.explore-destination-btn').dataset.destinationId;
-                    this.exploreDestination(destinationId);
+                    this.logger.info('Exploring location from homepage search', { destinationId });
+                    this.exploreLocation(destinationId);
                 });
             });
 
@@ -1129,6 +1135,9 @@ class TravelPlannerApp {
                     results = await this.services.location.searchLocations({ query });
                     break;
             }
+            
+            // Store search results for later reference
+            this._lastSearchResults = results;
             
             this.displaySearchResults(results, type);
             
