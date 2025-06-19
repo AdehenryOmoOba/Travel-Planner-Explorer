@@ -1183,6 +1183,7 @@ class TravelPlannerApp {
         // Itinerary management
         window.TravelApp.createNewTrip = this.createNewTrip.bind(this);
         window.TravelApp.selectTrip = this.selectTrip.bind(this);
+        window.TravelApp.deleteTrip = this.deleteTrip.bind(this);
         
         // Itinerary item management
         window.TravelApp.showAddItemModal = this.showAddItemModal.bind(this);
@@ -1389,8 +1390,8 @@ class TravelPlannerApp {
                 this.logger.info('Creating guest trip for unauthenticated user');
                 
                 const tripData = {
-                    name: `My Trip - ${new Date().toLocaleDateString()}`,
-                    title: `My Trip - ${new Date().toLocaleDateString()}`,
+                    name: 'My New Trip',
+                    title: 'My New Trip',
                     destination: 'Multiple Destinations',
                     startDate: new Date().toISOString().split('T')[0],
                     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -1410,8 +1411,8 @@ class TravelPlannerApp {
             
             // Create a simple trip for demo
             const tripData = {
-                name: `Trip to ${new Date().toLocaleDateString()}`,
-                title: `Trip to ${new Date().toLocaleDateString()}`,
+                name: 'My New Trip',
+                title: 'My New Trip',
                 destination: 'New Destination',
                 startDate: new Date().toISOString().split('T')[0],
                 endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -1849,53 +1850,64 @@ class TravelPlannerApp {
             
             return `
                 <div class="trip-card ${currentTrip?.id === trip.id ? 'active' : ''}" 
-                     onclick="TravelApp.selectTrip('${trip.id}')">
+                     data-trip-id="${trip.id}">
                     <div class="trip-card-header">
                         <div class="trip-title">
-                            <h4>${trip.title || trip.name}</h4>
+                            <h4 onclick="TravelApp.selectTrip('${trip.id}')">${trip.title || trip.name}</h4>
                             <div class="trip-status ${statusClass}">
                                 <i class="${statusIcon}"></i>
                                 <span>${statusText}</span>
                             </div>
                         </div>
+                        <div class="trip-actions">
+                            <button class="btn btn-sm btn-icon btn-danger" 
+                                    onclick="TravelApp.deleteTrip('${trip.id}')" 
+                                    title="Delete Trip"
+                                    style="z-index: 10; position: relative;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="trip-content" onclick="TravelApp.selectTrip('${trip.id}')">
                         <div class="trip-type">
                             <i class="fas fa-tag"></i>
                             <span>${trip.type || 'leisure'}</span>
                         </div>
+                        
+                        <div class="trip-destination">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>${trip.destination || 'Multiple Destinations'}</span>
+                        </div>
+                        
+                        <div class="trip-details">
+                            <div class="trip-duration">
+                                <i class="fas fa-clock"></i>
+                                <span>${trip.duration} day${trip.duration !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div class="trip-dates">
+                                <i class="fas fa-calendar"></i>
+                                <span>${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="trip-progress">
+                            <div class="progress-info">
+                                <span class="progress-label">Activities</span>
+                                <span class="progress-count">${totalItems} planned</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min((totalItems / (trip.duration * 2)) * 100, 100)}%"></div>
+                            </div>
+                        </div>
+                        
+                        ${trip.budget && trip.budget.total > 0 ? `
+                            <div class="trip-budget">
+                                <i class="fas fa-dollar-sign"></i>
+                                <span>$${trip.budget.spent || 0} / $${trip.budget.total}</span>
+                            </div>
+                        ` : ''}
                     </div>
-                    
-                    <div class="trip-destination">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>${trip.destination || 'Multiple Destinations'}</span>
-                    </div>
-                    
-                    <div class="trip-details">
-                        <div class="trip-duration">
-                            <i class="fas fa-clock"></i>
-                            <span>${trip.duration} day${trip.duration !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div class="trip-dates">
-                            <i class="fas fa-calendar"></i>
-                            <span>${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="trip-progress">
-                        <div class="progress-info">
-                            <span class="progress-label">Activities</span>
-                            <span class="progress-count">${totalItems} planned</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${Math.min((totalItems / (trip.duration * 2)) * 100, 100)}%"></div>
-                        </div>
-                    </div>
-                    
-                    ${trip.budget && trip.budget.total > 0 ? `
-                        <div class="trip-budget">
-                            <i class="fas fa-dollar-sign"></i>
-                            <span>$${trip.budget.spent || 0} / $${trip.budget.total}</span>
-                        </div>
-                    ` : ''}
                 </div>
             `;
         }).join('');
@@ -2091,6 +2103,57 @@ class TravelPlannerApp {
     addDay(tripId) {
         this.logger.info('Add day to trip', { tripId });
         UIManager.showToast('Add day functionality coming soon!', 'info');
+    }
+
+    /**
+     * Delete trip with confirmation
+     */
+    async deleteTrip(tripId) {
+        try {
+            this.logger.info('Delete trip requested', { tripId });
+            
+            // Get trip details for confirmation
+            const trip = this.modules.itinerary.getItinerary(tripId);
+            if (!trip) {
+                UIManager.showToast('Trip not found', 'error');
+                return;
+            }
+            
+            // Show confirmation dialog
+            const confirmed = confirm(`Are you sure you want to delete "${trip.title || trip.name}"?\n\nThis action cannot be undone.`);
+            
+            if (!confirmed) {
+                this.logger.info('Trip deletion cancelled by user');
+                return;
+            }
+            
+            // Delete the trip
+            await this.modules.itinerary.deleteItinerary(tripId);
+            
+            // Update UI
+            this.updateTripsDisplay();
+            
+            // If this was the current trip, clear the itinerary builder
+            const currentTrip = this.modules.itinerary.getCurrentItinerary();
+            if (!currentTrip || currentTrip.id === tripId) {
+                const builder = document.getElementById('itinerary-builder');
+                if (builder) {
+                    builder.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-plus"></i>
+                            <h3>Start Planning Your Adventure</h3>
+                            <p>Create a new trip or select an existing one to begin planning</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            UIManager.showToast(`"${trip.title || trip.name}" has been deleted`, 'success');
+            
+        } catch (error) {
+            this.handleError('Failed to delete trip', error);
+            UIManager.showToast('Failed to delete trip. Please try again.', 'error');
+        }
     }
 }
 

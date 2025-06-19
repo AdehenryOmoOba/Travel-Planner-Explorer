@@ -1055,12 +1055,46 @@ p {
     margin-bottom: var(--spacing-sm);
 }
 
+.trip-title {
+    flex: 1;
+}
+
 .trip-title h4 {
     margin: 0 0 var(--spacing-xs) 0;
     color: var(--text-color);
     font-size: 1.1rem;
     font-weight: 600;
     line-height: 1.3;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.trip-title h4:hover {
+    color: var(--primary-color);
+}
+
+.trip-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-left: var(--spacing-sm);
+}
+
+.trip-actions .btn-icon {
+    padding: 0.25rem;
+    min-width: auto;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.trip-actions .btn-icon:hover {
+    transform: scale(1.1);
+}
+
+.trip-content {
+    cursor: pointer;
 }
 
 .trip-status {
