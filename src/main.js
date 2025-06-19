@@ -655,137 +655,149 @@ class TravelPlannerApp {
             
             let currentItinerary = this.modules.itinerary.getCurrentItinerary();
             
-            // If no current itinerary, create one automatically
+            // If no current itinerary, show trip creation modal
             if (!currentItinerary) {
-                this.logger.info('No current itinerary found, creating new trip automatically');
-                currentItinerary = await this.createNewTrip();
-                if (!currentItinerary) {
-                    throw new Error('Failed to create new trip');
-                }
+                this.logger.info('No current itinerary found, showing trip creation modal');
+                UIManager.hideLoading();
+                
+                // Store the item details for later use after trip creation
+                this._pendingAddToTrip = { type, itemId };
+                
+                // Show trip creation modal
+                this.showTripCreationModal();
+                return;
             }
             
-            let itemData = null;
-            
-            if (type === 'location') {
-                // First try to get from search results
-                itemData = this._lastSearchResults?.find(result => 
-                    result.id === itemId || result.place_id === itemId
-                );
-                
-                if (!itemData) {
-                    // Fallback to API call if not in search results
-                    this.logger.info('Location not found in search results, fetching from API', { itemId });
-                    try {
-                        const response = await this.modules.api.searchLocation(itemId);
-                        if (response?.results?.[0]) {
-                            itemData = response.results[0];
-                        }
-                    } catch (apiError) {
-                        this.logger.error('Failed to fetch location from API', apiError);
-                        throw new Error('Location not found');
-                    }
-                }
-                
-                if (!itemData) {
-                    throw new Error('Location data not available');
-                }
-                
-                // Check if this is the first location being added to the trip
-                const isFirstLocation = this.isFirstLocationInTrip(currentItinerary);
-                
-                // If this is the first location and trip has a generic destination, update it
-                if (isFirstLocation && this.hasGenericDestination(currentItinerary)) {
-                    await this.updateTripDestination(currentItinerary.id, itemData);
-                }
-                
-                // Convert location data to itinerary item format
-                const itineraryItem = {
-                    title: itemData.name || itemData.title,
-                    description: itemData.description || itemData.vicinity || '',
-                    type: 'location',
-                    category: 'attraction',
-                    data: itemData,
-                    cost: 0,
-                    duration: '2 hours'
-                };
-                
-                // Add to the first available time slot of the first day
-                const firstDay = currentItinerary.days[0];
-                const availableSlot = this.findAvailableTimeSlot(firstDay);
-                
-                await this.modules.itinerary.addItemToDay(
-                    currentItinerary.id, 
-                    0, 
-                    availableSlot, 
-                    itineraryItem
-                );
-                
-            } else if (type === 'flight') {
-                // Handle flight booking
-                itemData = this.getFlightData(itemId);
-                if (!itemData) {
-                    throw new Error('Flight data not available');
-                }
-                
-                const itineraryItem = {
-                    title: `${itemData.airline} ${itemData.flightNumber}`,
-                    description: `${itemData.departure} to ${itemData.arrival}`,
-                    type: 'flight',
-                    category: 'transport',
-                    data: itemData,
-                    cost: itemData.price || 0,
-                    duration: itemData.duration || '2 hours'
-                };
-                
-                // Add to the first day, morning slot
-                await this.modules.itinerary.addItemToDay(
-                    currentItinerary.id, 
-                    0, 
-                    'morning', 
-                    itineraryItem
-                );
-                
-            } else if (type === 'hotel') {
-                // Handle hotel booking
-                itemData = this.getHotelData(itemId);
-                if (!itemData) {
-                    throw new Error('Hotel data not available');
-                }
-                
-                const itineraryItem = {
-                    title: itemData.name,
-                    description: itemData.description || itemData.address,
-                    type: 'hotel',
-                    category: 'accommodation',
-                    data: itemData,
-                    cost: itemData.pricePerNight || 0,
-                    duration: 'All day'
-                };
-                
-                // Add to the first day, evening slot
-                await this.modules.itinerary.addItemToDay(
-                    currentItinerary.id, 
-                    0, 
-                    'evening', 
-                    itineraryItem
-                );
-                
-            } else {
-                throw new Error(`Unsupported item type: ${type}`);
-            }
-            
-            // Update UI
-            this.selectTrip(currentItinerary.id);
-            this.updateTripsDisplay();
-            
-            UIManager.hideLoading();
-            UIManager.showToast(`${itemData.name || itemData.title} added to your trip!`, 'success');
+            // Continue with adding item to existing trip
+            await this.addItemToExistingTrip(type, itemId, currentItinerary);
             
         } catch (error) {
             UIManager.hideLoading();
             this.handleError('Failed to add item to trip', error);
             UIManager.showToast('Failed to add item to trip. Please try again.', 'error');
         }
+    }
+
+    /**
+     * Add item to an existing trip
+     */
+    async addItemToExistingTrip(type, itemId, currentItinerary) {
+        let itemData = null;
+        
+        if (type === 'location') {
+            // First try to get from search results
+            itemData = this._lastSearchResults?.find(result => 
+                result.id === itemId || result.place_id === itemId
+            );
+            
+            if (!itemData) {
+                // Fallback to API call if not in search results
+                this.logger.info('Location not found in search results, fetching from API', { itemId });
+                try {
+                    const response = await this.modules.api.searchLocation(itemId);
+                    if (response?.results?.[0]) {
+                        itemData = response.results[0];
+                    }
+                } catch (apiError) {
+                    this.logger.error('Failed to fetch location from API', apiError);
+                    throw new Error('Location not found');
+                }
+            }
+            
+            if (!itemData) {
+                throw new Error('Location data not available');
+            }
+            
+            // Check if this is the first location being added to the trip
+            const isFirstLocation = this.isFirstLocationInTrip(currentItinerary);
+            
+            // If this is the first location and trip has a generic destination, update it
+            if (isFirstLocation && this.hasGenericDestination(currentItinerary)) {
+                await this.updateTripDestination(currentItinerary.id, itemData);
+            }
+            
+            // Convert location data to itinerary item format
+            const itineraryItem = {
+                title: itemData.name || itemData.title,
+                description: itemData.description || itemData.vicinity || '',
+                type: 'location',
+                category: 'attraction',
+                data: itemData,
+                cost: 0,
+                duration: '2 hours'
+            };
+            
+            // Add to the first available time slot of the first day
+            const firstDay = currentItinerary.days[0];
+            const availableSlot = this.findAvailableTimeSlot(firstDay);
+        
+        await this.modules.itinerary.addItemToDay(
+            currentItinerary.id,
+                0, 
+                availableSlot, 
+                itineraryItem
+            );
+            
+        } else if (type === 'flight') {
+            // Handle flight booking
+            itemData = this.getFlightData(itemId);
+            if (!itemData) {
+                throw new Error('Flight data not available');
+            }
+            
+            const itineraryItem = {
+                title: `${itemData.airline} ${itemData.flightNumber}`,
+                description: `${itemData.departure} to ${itemData.arrival}`,
+                type: 'flight',
+                category: 'transport',
+                data: itemData,
+                cost: itemData.price || 0,
+                duration: itemData.duration || '2 hours'
+            };
+            
+            // Add to the first day, morning slot
+            await this.modules.itinerary.addItemToDay(
+                currentItinerary.id, 
+                0, 
+                'morning', 
+                itineraryItem
+            );
+            
+        } else if (type === 'hotel') {
+            // Handle hotel booking
+            itemData = this.getHotelData(itemId);
+            if (!itemData) {
+                throw new Error('Hotel data not available');
+            }
+            
+            const itineraryItem = {
+                title: itemData.name,
+                description: itemData.description || itemData.address,
+                type: 'hotel',
+                category: 'accommodation',
+                data: itemData,
+                cost: itemData.pricePerNight || 0,
+                duration: 'All day'
+            };
+            
+            // Add to the first day, evening slot
+            await this.modules.itinerary.addItemToDay(
+                currentItinerary.id, 
+                0, 
+                'evening', 
+                itineraryItem
+            );
+            
+        } else {
+            throw new Error(`Unsupported item type: ${type}`);
+        }
+        
+        // Update UI
+        this.selectTrip(currentItinerary.id);
+        this.updateTripsDisplay();
+        
+        UIManager.hideLoading();
+        UIManager.showToast(`${itemData.name || itemData.title} added to your trip!`, 'success');
     }
     
     /**
@@ -878,14 +890,37 @@ class TravelPlannerApp {
         try {
             this.logger.info('Exploring destination', { locationId });
             
-            // Get location details
-            const locationDetails = await this.services.location.getLocationDetails(locationId);
+            // Try to get location details from stored popular destinations first
+            let locationDetails = null;
+            
+            // Check if we have the destination in our stored search results
+            if (this._lastSearchResults) {
+                locationDetails = this._lastSearchResults.find(dest => 
+                    dest.id === locationId || dest.place_id === locationId
+                );
+            }
+            
+            // If not found in search results, try to get from API
+            if (!locationDetails) {
+                this.logger.info('Destination not found in stored results, fetching from API', { locationId });
+                locationDetails = await this.services.location.getLocationDetails(locationId);
+            }
+            
+            if (!locationDetails) {
+                throw new Error('Destination details not found');
+            }
+            
+            this.logger.info('Found destination details', { 
+                name: locationDetails.name, 
+                hasDescription: !!locationDetails.description 
+            });
             
             // Navigate to explore page with location data
             this.modules.navigation.navigateTo('explore', { location: locationDetails });
             
         } catch (error) {
             this.handleError('Failed to explore destination', error);
+            UIManager.showToast('Failed to load destination details. Please try again.', 'error');
         }
     }
 
@@ -1524,83 +1559,64 @@ class TravelPlannerApp {
      * Handle trip creation form submission
      */
     async handleTripCreationSubmit(event) {
+        event.preventDefault();
+        
         try {
+            UIManager.showLoading('Creating your trip...');
+            
+            // Get form data
             const formData = new FormData(event.target);
-            const destination = formData.get('destination')?.trim();
-            const startDate = formData.get('startDate');
-            const endDate = formData.get('endDate');
-            
-            // Validate required fields
-            if (!destination) {
-                UIManager.showToast('Please enter a destination', 'error');
-                return;
-            }
-            
-            if (!startDate || !endDate) {
-                UIManager.showToast('Please select start and end dates', 'error');
-                return;
-            }
-            
-            // Validate date range
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            
-            if (end <= start) {
-                UIManager.showToast('End date must be after start date', 'error');
-                return;
-            }
-            
-            // Calculate duration
-            const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-            
-            // Create trip name if not provided
-            let tripName = formData.get('name')?.trim();
-            if (!tripName) {
-                tripName = `Trip to ${destination}`;
-            }
-            
-            // Get budget if provided
-            const budgetValue = formData.get('budget');
-            const budget = budgetValue ? {
-                total: parseFloat(budgetValue),
-                spent: 0,
-                currency: 'USD'
-            } : null;
-            
-            // Create trip data
             const tripData = {
-                name: tripName,
-                title: tripName,
-                destination: destination,
-                startDate: startDate,
-                endDate: endDate,
-                duration: duration,
-                type: formData.get('type') || 'leisure',
-                budget: budget
+                title: formData.get('tripName'),
+                destination: formData.get('destination'),
+                startDate: formData.get('startDate'),
+                endDate: formData.get('endDate'),
+                type: formData.get('tripType'),
+                budget: parseFloat(formData.get('budget')) || 0,
+                travelers: parseInt(formData.get('travelers')) || 1,
+                notes: formData.get('notes') || ''
             };
             
-            UIManager.showLoading('Creating your trip...');
+            this.logger.info('Creating trip with data', { tripData });
             
             // Create the trip
             const newTrip = await this.modules.itinerary.createItinerary(tripData);
             
-            // Close modal
+            if (!newTrip) {
+                throw new Error('Failed to create trip');
+            }
+            
+            this.logger.info('Trip created successfully', { tripId: newTrip.id, title: newTrip.title });
+            
+            // Close the modal
             this.closeTripCreationModal();
             
-            // Update UI
-            this.updateTripsDisplay();
+            // Select the new trip
             this.selectTrip(newTrip.id);
             
-            UIManager.hideLoading();
-            UIManager.showToast(`Trip to ${destination} created successfully!`, 'success');
+            // Update trips display
+            this.updateTripsDisplay();
             
-            return newTrip;
+            // Navigate to planner page
+            this.modules.navigation.navigateTo('planner');
+            
+            UIManager.hideLoading();
+            UIManager.showToast(`Trip "${newTrip.title}" created successfully!`, 'success');
+            
+            // If there was a pending add-to-trip request, process it now
+            if (this._pendingAddToTrip) {
+                this.logger.info('Processing pending add-to-trip request', this._pendingAddToTrip);
+                const { type, itemId } = this._pendingAddToTrip;
+                this._pendingAddToTrip = null; // Clear the pending request
+                
+                // Add the item to the newly created trip
+                await this.addItemToExistingTrip(type, itemId, newTrip);
+            }
             
         } catch (error) {
             UIManager.hideLoading();
-            this.handleError('Failed to create trip', error);
+            this.logger.error('Failed to create trip', error);
             UIManager.showToast('Failed to create trip. Please try again.', 'error');
-            return null;
         }
     }
 
@@ -1610,10 +1626,13 @@ class TravelPlannerApp {
     closeTripCreationModal() {
         const modal = document.getElementById('trip-creation-modal');
         if (modal) {
-            modal.classList.remove('active');
-            setTimeout(() => {
-                modal.remove();
-            }, 300);
+            modal.remove();
+        }
+        
+        // Clear any pending add-to-trip requests
+        if (this._pendingAddToTrip) {
+            this.logger.info('Clearing pending add-to-trip request due to modal close');
+            this._pendingAddToTrip = null;
         }
     }
 
