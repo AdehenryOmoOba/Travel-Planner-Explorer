@@ -651,81 +651,224 @@ class TravelPlannerApp {
      */
     async addToItinerary(type, itemId) {
         try {
-            const currentItinerary = this.modules.itinerary.getCurrentItinerary();
+            UIManager.showLoading('Adding to trip...');
+            
+            let currentItinerary = this.modules.itinerary.getCurrentItinerary();
+            
+            // If no current itinerary, create one automatically
             if (!currentItinerary) {
-                // If no current itinerary, create one automatically
-                const newTrip = await this.createNewTrip();
-                if (!newTrip) {
-                    UIManager.showToast('Please create a trip first', 'warning');
-                    return;
+                this.logger.info('No current itinerary found, creating new trip automatically');
+                currentItinerary = await this.createNewTrip();
+                if (!currentItinerary) {
+                    throw new Error('Failed to create new trip');
                 }
             }
             
-            this.logger.info('Adding item to itinerary', { type, itemId });
-            UIManager.showLoading();
+            let itemData = null;
             
-            // Get item details based on type
-            let itemData;
-            switch (type) {
-                case 'flight':
-                    itemData = await this.services.flight.getFlightDetails(itemId);
-                    break;
-                case 'hotel':
-                    itemData = await this.services.hotel.getHotelDetails(itemId);
-                    break;
-                case 'location':
-                    // Try to get location from last search results first
-                    const lastResults = this._lastSearchResults || [];
-                    let locationFromSearch = lastResults.find(loc => loc.id === itemId);
-                    
-                    if (locationFromSearch) {
-                        itemData = locationFromSearch;
-                        this.logger.debug('Using location from search results', { itemId });
-                    } else {
-                        // Fallback to API call
-                        this.logger.debug('Fetching location details from API', { itemId });
-                        itemData = await this.services.location.getLocationDetails(itemId);
+            if (type === 'location') {
+                // First try to get from search results
+                itemData = this._lastSearchResults?.find(result => 
+                    result.id === itemId || result.place_id === itemId
+                );
+                
+                if (!itemData) {
+                    // Fallback to API call if not in search results
+                    this.logger.info('Location not found in search results, fetching from API', { itemId });
+                    try {
+                        const response = await this.modules.api.searchLocation(itemId);
+                        if (response?.results?.[0]) {
+                            itemData = response.results[0];
+                        }
+                    } catch (apiError) {
+                        this.logger.error('Failed to fetch location from API', apiError);
+                        throw new Error('Location not found');
                     }
-                    break;
-                default:
-                    throw new Error(`Unsupported item type: ${type}`);
-            }
-            
-            if (!itemData) {
-                throw new Error(`Could not find ${type} with ID: ${itemId}`);
-            }
-            
-            // Get current itinerary again in case it was just created
-            const itinerary = this.modules.itinerary.getCurrentItinerary();
-            
-            // Add to first available day and time slot
-            const dayIndex = 0;
-            const timeSlot = 'morning';
-            
-            await this.modules.itinerary.addItemToDay(
-                itinerary.id,
-                dayIndex,
-                timeSlot,
-                {
-                    type,
-                    title: itemData.name || itemData.title,
-                    description: itemData.description || `Visit ${itemData.name}`,
-                    data: itemData,
-                    category: type === 'location' ? 'attraction' : type,
-                    cost: itemData.cost || 0
                 }
-            );
+                
+                if (!itemData) {
+                    throw new Error('Location data not available');
+                }
+                
+                // Check if this is the first location being added to the trip
+                const isFirstLocation = this.isFirstLocationInTrip(currentItinerary);
+                
+                // If this is the first location and trip has a generic destination, update it
+                if (isFirstLocation && this.hasGenericDestination(currentItinerary)) {
+                    await this.updateTripDestination(currentItinerary.id, itemData);
+                }
+                
+                // Convert location data to itinerary item format
+                const itineraryItem = {
+                    title: itemData.name || itemData.title,
+                    description: itemData.description || itemData.vicinity || '',
+                    type: 'location',
+                    category: 'attraction',
+                    data: itemData,
+                    cost: 0,
+                    duration: '2 hours'
+                };
+                
+                // Add to the first available time slot of the first day
+                const firstDay = currentItinerary.days[0];
+                const availableSlot = this.findAvailableTimeSlot(firstDay);
+                
+                await this.modules.itinerary.addItemToDay(
+                    currentItinerary.id, 
+                    0, 
+                    availableSlot, 
+                    itineraryItem
+                );
+                
+            } else if (type === 'flight') {
+                // Handle flight booking
+                itemData = this.getFlightData(itemId);
+                if (!itemData) {
+                    throw new Error('Flight data not available');
+                }
+                
+                const itineraryItem = {
+                    title: `${itemData.airline} ${itemData.flightNumber}`,
+                    description: `${itemData.departure} to ${itemData.arrival}`,
+                    type: 'flight',
+                    category: 'transport',
+                    data: itemData,
+                    cost: itemData.price || 0,
+                    duration: itemData.duration || '2 hours'
+                };
+                
+                // Add to the first day, morning slot
+                await this.modules.itinerary.addItemToDay(
+                    currentItinerary.id, 
+                    0, 
+                    'morning', 
+                    itineraryItem
+                );
+                
+            } else if (type === 'hotel') {
+                // Handle hotel booking
+                itemData = this.getHotelData(itemId);
+                if (!itemData) {
+                    throw new Error('Hotel data not available');
+                }
+                
+                const itineraryItem = {
+                    title: itemData.name,
+                    description: itemData.description || itemData.address,
+                    type: 'hotel',
+                    category: 'accommodation',
+                    data: itemData,
+                    cost: itemData.pricePerNight || 0,
+                    duration: 'All day'
+                };
+                
+                // Add to the first day, evening slot
+                await this.modules.itinerary.addItemToDay(
+                    currentItinerary.id, 
+                    0, 
+                    'evening', 
+                    itineraryItem
+                );
+                
+            } else {
+                throw new Error(`Unsupported item type: ${type}`);
+            }
             
-            // Update trips display to show the new item
+            // Update UI
+            this.selectTrip(currentItinerary.id);
             this.updateTripsDisplay();
             
+            UIManager.hideLoading();
             UIManager.showToast(`${itemData.name || itemData.title} added to your trip!`, 'success');
             
         } catch (error) {
-            this.handleError('Failed to add item to trip', error);
-        } finally {
             UIManager.hideLoading();
+            this.handleError('Failed to add item to trip', error);
+            UIManager.showToast('Failed to add item to trip. Please try again.', 'error');
         }
+    }
+    
+    /**
+     * Check if this is the first location being added to the trip
+     */
+    isFirstLocationInTrip(trip) {
+        for (const day of trip.days) {
+            for (const timeSlot of Object.values(day.timeSlots)) {
+                const locationItems = timeSlot.items?.filter(item => 
+                    item.type === 'location' || item.category === 'attraction'
+                ) || [];
+                if (locationItems.length > 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    /**
+     * Check if trip has a generic destination name
+     */
+    hasGenericDestination(trip) {
+        const genericNames = [
+            'Multiple Destinations',
+            'New Destination', 
+            'Unknown Destination',
+            'Destination'
+        ];
+        return genericNames.includes(trip.destination);
+    }
+    
+    /**
+     * Update trip destination based on location data
+     */
+    async updateTripDestination(tripId, locationData) {
+        try {
+            const trip = this.modules.itinerary.getItinerary(tripId);
+            if (!trip) return;
+            
+            // Extract destination from location data
+            let destination = 'Unknown Destination';
+            
+            if (locationData.vicinity) {
+                // Extract city from vicinity (e.g., "Downtown, New York, NY" -> "New York")
+                const parts = locationData.vicinity.split(',').map(p => p.trim());
+                destination = parts.length > 1 ? parts[parts.length - 2] : parts[0];
+            } else if (locationData.formatted_address) {
+                // Extract city from formatted address
+                const parts = locationData.formatted_address.split(',').map(p => p.trim());
+                destination = parts.length > 1 ? parts[parts.length - 3] || parts[parts.length - 2] : parts[0];
+            } else if (locationData.name) {
+                // Use location name as fallback
+                destination = locationData.name;
+            }
+            
+            // Update the trip destination
+            trip.destination = destination;
+            trip.title = `Trip to ${destination}`;
+            trip.name = `Trip to ${destination}`;
+            trip.updatedAt = new Date().toISOString();
+            
+            // Save the updated trip
+            await this.modules.itinerary.saveItineraries();
+            
+            this.logger.info('Updated trip destination', { tripId, destination });
+            
+        } catch (error) {
+            this.logger.error('Failed to update trip destination', error);
+        }
+    }
+    
+    /**
+     * Find the first available time slot in a day
+     */
+    findAvailableTimeSlot(day) {
+        const slots = ['morning', 'afternoon', 'evening'];
+        for (const slot of slots) {
+            if (day.timeSlots[slot] && (!day.timeSlots[slot].items || day.timeSlots[slot].items.length === 0)) {
+                return slot;
+            }
+        }
+        return 'morning'; // Default to morning if all slots have items
     }
 
     /**
@@ -1316,26 +1459,121 @@ class TravelPlannerApp {
         const builder = document.getElementById('itinerary-builder');
         if (!builder) return;
         
+        // Calculate trip statistics
+        const totalItems = trip.days.reduce((total, day) => {
+            return total + Object.values(day.timeSlots).reduce((dayTotal, slot) => {
+                return dayTotal + (slot.items ? slot.items.length : 0);
+            }, 0);
+        }, 0);
+        
+        const startDate = new Date(trip.startDate);
+        const endDate = new Date(trip.endDate);
+        const isUpcoming = startDate > new Date();
+        const isActive = startDate <= new Date() && endDate >= new Date();
+        const isPast = endDate < new Date();
+        
+        let statusClass = '';
+        let statusText = '';
+        let statusIcon = '';
+        
+        if (isPast) {
+            statusClass = 'status-completed';
+            statusText = 'Completed';
+            statusIcon = 'fas fa-check-circle';
+        } else if (isActive) {
+            statusClass = 'status-active';
+            statusText = 'Active';
+            statusIcon = 'fas fa-play-circle';
+        } else {
+            statusClass = 'status-upcoming';
+            statusText = 'Upcoming';
+            statusIcon = 'fas fa-calendar-alt';
+        }
+        
         builder.innerHTML = `
             <div class="itinerary-header">
-                <h2>${trip.title || trip.name}</h2>
-                <p>${trip.destination} • ${trip.duration} days</p>
+                <div class="itinerary-title-section">
+                    <div class="title-row">
+                        <h2>${trip.title || trip.name}</h2>
+                        <div class="trip-status-badge ${statusClass}">
+                            <i class="${statusIcon}"></i>
+                            <span>${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="destination-row">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span class="destination">${trip.destination || 'Multiple Destinations'}</span>
+                        <div class="trip-type-badge">
+                            <i class="fas fa-tag"></i>
+                            <span>${trip.type || 'leisure'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="itinerary-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-number">${trip.duration}</span>
+                            <span class="stat-label">Day${trip.duration !== 1 ? 's' : ''}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-number">${totalItems}</span>
+                            <span class="stat-label">Activities</span>
+                        </div>
+                    </div>
+                    
+                    ${trip.budget && trip.budget.total > 0 ? `
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-number">$${trip.budget.spent || 0}</span>
+                                <span class="stat-label">of $${trip.budget.total}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-number">${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            <span class="stat-label">to ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="itinerary-actions">
                     <button class="btn btn-outline" onclick="TravelApp.editTrip('${trip.id}')">
-                        <i class="fas fa-edit"></i> Edit
+                        <i class="fas fa-edit"></i>
+                        <span>Edit Trip</span>
                     </button>
                     <button class="btn btn-secondary" onclick="TravelApp.exportTrip('${trip.id}')">
-                        <i class="fas fa-download"></i> Export
+                        <i class="fas fa-download"></i>
+                        <span>Export</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="TravelApp.addDay('${trip.id}')">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Day</span>
                     </button>
                 </div>
             </div>
-            <div class="itinerary-days">
-                ${trip.days.map((day, index) => this.renderDay(day, index, trip.id)).join('')}
-            </div>
-            <div class="itinerary-footer">
-                <button class="btn btn-primary" onclick="TravelApp.addDay('${trip.id}')">
-                    <i class="fas fa-plus"></i> Add Day
-                </button>
+            
+            <div class="itinerary-content">
+                <div class="itinerary-days">
+                    ${trip.days.map((day, index) => this.renderDay(day, index, trip.id)).join('')}
+                </div>
             </div>
         `;
     }
@@ -1344,11 +1582,40 @@ class TravelPlannerApp {
      * Render a single day in the itinerary
      */
     renderDay(day, dayIndex, tripId) {
+        const dayDate = new Date(day.date);
+        const isToday = dayDate.toDateString() === new Date().toDateString();
+        const isPast = dayDate < new Date() && !isToday;
+        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        // Calculate day statistics
+        const totalItems = Object.values(day.timeSlots).reduce((total, slot) => {
+            return total + (slot.items ? slot.items.length : 0);
+        }, 0);
+        
         return `
-            <div class="day-card" data-day="${dayIndex}">
+            <div class="day-card ${isToday ? 'today' : ''} ${isPast ? 'past' : ''}" data-day="${dayIndex}">
                 <div class="day-header">
-                    <h3>Day ${dayIndex + 1}</h3>
-                    <span class="day-date">${new Date(day.date).toLocaleDateString()}</span>
+                    <div class="day-title">
+                        <div class="day-number">
+                            <span class="day-label">Day</span>
+                            <span class="day-value">${dayIndex + 1}</span>
+                        </div>
+                        <div class="day-info">
+                            <h3>${dayName}</h3>
+                            <span class="day-date">${dayDate.toLocaleDateString('en-US', { 
+                                month: 'long', 
+                                day: 'numeric',
+                                year: dayDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                            })}</span>
+                        </div>
+                    </div>
+                    <div class="day-stats">
+                        <div class="day-stat">
+                            <i class="fas fa-tasks"></i>
+                            <span>${totalItems} activities</span>
+                        </div>
+                        ${isToday ? '<div class="today-badge"><i class="fas fa-star"></i><span>Today</span></div>' : ''}
+                    </div>
                 </div>
                 <div class="day-content">
                     <div class="time-slots">
@@ -1372,17 +1639,50 @@ class TravelPlannerApp {
             night: 'Night'
         };
         
+        const slotIcons = {
+            morning: 'fas fa-sun',
+            afternoon: 'fas fa-cloud-sun',
+            evening: 'fas fa-moon',
+            night: 'fas fa-star'
+        };
+        
+        const slotTimes = {
+            morning: '6:00 AM - 12:00 PM',
+            afternoon: '12:00 PM - 6:00 PM',
+            evening: '6:00 PM - 10:00 PM',
+            night: '10:00 PM - 6:00 AM'
+        };
+        
         // Ensure timeSlotObj has the correct structure
         const items = timeSlotObj?.items || [];
+        const slotName = slotNames[slot] || timeSlotObj?.name || slot;
+        const slotIcon = slotIcons[slot] || 'fas fa-clock';
+        const slotTime = slotTimes[slot] || '';
         
         return `
-            <div class="time-slot" data-slot="${slot}">
-                <h4>${slotNames[slot] || timeSlotObj?.name || slot}</h4>
-                <div class="slot-items">
-                    ${items.map(item => this.renderItineraryItem(item, dayIndex, slot, tripId)).join('')}
+            <div class="time-slot ${items.length === 0 ? 'empty' : ''}" data-slot="${slot}">
+                <div class="time-slot-header">
+                    <div class="slot-title">
+                        <div class="slot-icon">
+                            <i class="${slotIcon}"></i>
+                        </div>
+                        <div class="slot-info">
+                            <h4>${slotName}</h4>
+                            <span class="slot-time">${slotTime}</span>
+                        </div>
+                    </div>
+                    <div class="slot-meta">
+                        <span class="item-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                </div>
+                <div class="slot-content">
+                    <div class="slot-items">
+                        ${items.map(item => this.renderItineraryItem(item, dayIndex, slot, tripId)).join('')}
+                    </div>
                     <button class="btn btn-outline btn-sm add-item-btn" 
                             onclick="TravelApp.showAddItemModal('${tripId}', ${dayIndex}, '${slot}')">
-                        <i class="fas fa-plus"></i> Add Item
+                        <i class="fas fa-plus"></i>
+                        <span>Add Activity</span>
                     </button>
                 </div>
             </div>
@@ -1393,20 +1693,97 @@ class TravelPlannerApp {
      * Render an itinerary item
      */
     renderItineraryItem(item, dayIndex, slot, tripId) {
+        const typeIcons = {
+            location: 'fas fa-map-marker-alt',
+            attraction: 'fas fa-camera',
+            restaurant: 'fas fa-utensils',
+            hotel: 'fas fa-bed',
+            flight: 'fas fa-plane',
+            activity: 'fas fa-hiking',
+            shopping: 'fas fa-shopping-bag',
+            transport: 'fas fa-car',
+            meeting: 'fas fa-handshake',
+            entertainment: 'fas fa-music'
+        };
+        
+        const typeColors = {
+            location: '#e74c3c',
+            attraction: '#3498db',
+            restaurant: '#f39c12',
+            hotel: '#9b59b6',
+            flight: '#1abc9c',
+            activity: '#27ae60',
+            shopping: '#e67e22',
+            transport: '#34495e',
+            meeting: '#2c3e50',
+            entertainment: '#8e44ad'
+        };
+        
+        const itemIcon = typeIcons[item.type] || typeIcons[item.category] || 'fas fa-map-marker-alt';
+        const itemColor = typeColors[item.type] || typeColors[item.category] || '#3498db';
+        
+        // Format cost if available
+        const costDisplay = item.cost && item.cost > 0 ? `
+            <div class="item-cost">
+                <i class="fas fa-dollar-sign"></i>
+                <span>$${item.cost}</span>
+            </div>
+        ` : '';
+        
+        // Format duration if available
+        const durationDisplay = item.duration ? `
+            <div class="item-duration">
+                <i class="fas fa-clock"></i>
+                <span>${item.duration}</span>
+            </div>
+        ` : '';
+        
         return `
             <div class="itinerary-item" data-item-id="${item.id}">
-                <div class="item-content">
-                    <h5>${item.title}</h5>
-                    <p>${item.description}</p>
-                    <span class="item-type">${item.type}</span>
-                </div>
-                <div class="item-actions">
-                    <button class="btn btn-sm" onclick="TravelApp.editItem('${tripId}', '${item.id}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm" onclick="TravelApp.removeItem('${tripId}', '${item.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <div class="item-indicator" style="background-color: ${itemColor}"></div>
+                <div class="item-main">
+                    <div class="item-header">
+                        <div class="item-title-section">
+                            <div class="item-icon" style="color: ${itemColor}">
+                                <i class="${itemIcon}"></i>
+                            </div>
+                            <div class="item-title-info">
+                                <h5>${item.title}</h5>
+                                <span class="item-type-badge">${item.type || item.category || 'activity'}</span>
+                            </div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn btn-sm btn-icon" onclick="TravelApp.editItem('${tripId}', '${item.id}')" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-icon btn-danger" onclick="TravelApp.removeItem('${tripId}', '${item.id}')" title="Remove">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    ${item.description ? `
+                        <div class="item-description">
+                            <p>${item.description}</p>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="item-meta">
+                        ${costDisplay}
+                        ${durationDisplay}
+                        ${item.data && item.data.rating ? `
+                            <div class="item-rating">
+                                <i class="fas fa-star"></i>
+                                <span>${item.data.rating}</span>
+                            </div>
+                        ` : ''}
+                        ${item.addedAt ? `
+                            <div class="item-added">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Added ${new Date(item.addedAt).toLocaleDateString()}</span>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
         `;
@@ -1425,8 +1802,11 @@ class TravelPlannerApp {
         if (trips.length === 0) {
             tripsList.innerHTML = `
                 <div class="empty-trips">
-                    <p>No trips yet</p>
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h4>No trips yet</h4>
+                    <p>Start planning your next adventure!</p>
                     <button class="btn btn-primary btn-sm" onclick="TravelApp.createNewTrip()">
+                        <i class="fas fa-plus"></i>
                         Create Your First Trip
                     </button>
                 </div>
@@ -1434,14 +1814,91 @@ class TravelPlannerApp {
             return;
         }
         
-        tripsList.innerHTML = trips.map(trip => `
-            <div class="trip-item ${currentTrip?.id === trip.id ? 'active' : ''}" 
-                 onclick="TravelApp.selectTrip('${trip.id}')">
-                <h4>${trip.title || trip.name}</h4>
-                <p>${trip.destination}</p>
-                <span class="trip-duration">${trip.duration} days</span>
-            </div>
-        `).join('');
+        tripsList.innerHTML = trips.map(trip => {
+            // Calculate trip progress
+            const totalItems = trip.days.reduce((total, day) => {
+                return total + Object.values(day.timeSlots).reduce((dayTotal, slot) => {
+                    return dayTotal + (slot.items ? slot.items.length : 0);
+                }, 0);
+            }, 0);
+            
+            // Format dates
+            const startDate = new Date(trip.startDate);
+            const endDate = new Date(trip.endDate);
+            const isUpcoming = startDate > new Date();
+            const isActive = startDate <= new Date() && endDate >= new Date();
+            const isPast = endDate < new Date();
+            
+            let statusClass = '';
+            let statusText = '';
+            let statusIcon = '';
+            
+            if (isPast) {
+                statusClass = 'status-completed';
+                statusText = 'Completed';
+                statusIcon = 'fas fa-check-circle';
+            } else if (isActive) {
+                statusClass = 'status-active';
+                statusText = 'Active';
+                statusIcon = 'fas fa-play-circle';
+            } else {
+                statusClass = 'status-upcoming';
+                statusText = 'Upcoming';
+                statusIcon = 'fas fa-calendar-alt';
+            }
+            
+            return `
+                <div class="trip-card ${currentTrip?.id === trip.id ? 'active' : ''}" 
+                     onclick="TravelApp.selectTrip('${trip.id}')">
+                    <div class="trip-card-header">
+                        <div class="trip-title">
+                            <h4>${trip.title || trip.name}</h4>
+                            <div class="trip-status ${statusClass}">
+                                <i class="${statusIcon}"></i>
+                                <span>${statusText}</span>
+                            </div>
+                        </div>
+                        <div class="trip-type">
+                            <i class="fas fa-tag"></i>
+                            <span>${trip.type || 'leisure'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="trip-destination">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${trip.destination || 'Multiple Destinations'}</span>
+                    </div>
+                    
+                    <div class="trip-details">
+                        <div class="trip-duration">
+                            <i class="fas fa-clock"></i>
+                            <span>${trip.duration} day${trip.duration !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="trip-dates">
+                            <i class="fas fa-calendar"></i>
+                            <span>${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="trip-progress">
+                        <div class="progress-info">
+                            <span class="progress-label">Activities</span>
+                            <span class="progress-count">${totalItems} planned</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${Math.min((totalItems / (trip.duration * 2)) * 100, 100)}%"></div>
+                        </div>
+                    </div>
+                    
+                    ${trip.budget && trip.budget.total > 0 ? `
+                        <div class="trip-budget">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span>$${trip.budget.spent || 0} / $${trip.budget.total}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
     }
 
     /**
