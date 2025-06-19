@@ -1041,6 +1041,14 @@ class TravelPlannerApp {
         window.TravelApp.createNewTrip = this.createNewTrip.bind(this);
         window.TravelApp.selectTrip = this.selectTrip.bind(this);
         
+        // Itinerary item management
+        window.TravelApp.showAddItemModal = this.showAddItemModal.bind(this);
+        window.TravelApp.editItem = this.editItem.bind(this);
+        window.TravelApp.removeItem = this.removeItem.bind(this);
+        window.TravelApp.editTrip = this.editTrip.bind(this);
+        window.TravelApp.exportTrip = this.exportTrip.bind(this);
+        window.TravelApp.addDay = this.addDay.bind(this);
+        
         // Map functionality
         window.TravelApp.initializeMap = this.initializeMap.bind(this);
         
@@ -1344,8 +1352,8 @@ class TravelPlannerApp {
                 </div>
                 <div class="day-content">
                     <div class="time-slots">
-                        ${Object.entries(day.timeSlots).map(([slot, items]) => 
-                            this.renderTimeSlot(slot, items, dayIndex, tripId)
+                        ${Object.entries(day.timeSlots).map(([slot, timeSlotObj]) => 
+                            this.renderTimeSlot(slot, timeSlotObj, dayIndex, tripId)
                         ).join('')}
                     </div>
                 </div>
@@ -1356,7 +1364,7 @@ class TravelPlannerApp {
     /**
      * Render a time slot
      */
-    renderTimeSlot(slot, items, dayIndex, tripId) {
+    renderTimeSlot(slot, timeSlotObj, dayIndex, tripId) {
         const slotNames = {
             morning: 'Morning',
             afternoon: 'Afternoon',
@@ -1364,9 +1372,12 @@ class TravelPlannerApp {
             night: 'Night'
         };
         
+        // Ensure timeSlotObj has the correct structure
+        const items = timeSlotObj?.items || [];
+        
         return `
             <div class="time-slot" data-slot="${slot}">
-                <h4>${slotNames[slot]}</h4>
+                <h4>${slotNames[slot] || timeSlotObj?.name || slot}</h4>
                 <div class="slot-items">
                     ${items.map(item => this.renderItineraryItem(item, dayIndex, slot, tripId)).join('')}
                     <button class="btn btn-outline btn-sm add-item-btn" 
@@ -1558,6 +1569,71 @@ class TravelPlannerApp {
                 this.services.map.map.removeLayer(marker);
             }
         });
+    }
+
+    /**
+     * Show add item modal (placeholder implementation)
+     */
+    showAddItemModal(tripId, dayIndex, slot) {
+        this.logger.info('Show add item modal', { tripId, dayIndex, slot });
+        UIManager.showToast('Add item functionality coming soon!', 'info');
+    }
+
+    /**
+     * Edit item (placeholder implementation)
+     */
+    editItem(tripId, itemId) {
+        this.logger.info('Edit item', { tripId, itemId });
+        UIManager.showToast('Edit item functionality coming soon!', 'info');
+    }
+
+    /**
+     * Remove item from itinerary
+     */
+    async removeItem(tripId, itemId) {
+        try {
+            this.logger.info('Removing item from trip', { tripId, itemId });
+            
+            await this.modules.itinerary.removeItem(tripId, itemId);
+            
+            // Update trips display
+            this.updateTripsDisplay();
+            
+            // Refresh the current itinerary display
+            const trip = this.modules.itinerary.getItinerary(tripId);
+            if (trip) {
+                this.displayItinerary(trip);
+            }
+            
+            UIManager.showToast('Item removed from trip', 'success');
+            
+        } catch (error) {
+            this.handleError('Failed to remove item', error);
+        }
+    }
+
+    /**
+     * Edit trip (placeholder implementation)
+     */
+    editTrip(tripId) {
+        this.logger.info('Edit trip', { tripId });
+        UIManager.showToast('Edit trip functionality coming soon!', 'info');
+    }
+
+    /**
+     * Export trip (placeholder implementation)
+     */
+    exportTrip(tripId) {
+        this.logger.info('Export trip', { tripId });
+        UIManager.showToast('Export trip functionality coming soon!', 'info');
+    }
+
+    /**
+     * Add day to trip (placeholder implementation)
+     */
+    addDay(tripId) {
+        this.logger.info('Add day to trip', { tripId });
+        UIManager.showToast('Add day functionality coming soon!', 'info');
     }
 }
 
